@@ -22,6 +22,15 @@ from .models import (
     Skill,
 )
 from portal.models import AdminStudentRecord, CollegeProfile, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
+from portal.forms import ACADEMIC_PROGRAMME_CHOICES
+
+
+DEFAULT_DEPARTMENT_NAMES = [
+    value
+    for _group_label, group_choices in ACADEMIC_PROGRAMME_CHOICES
+    for value, _display_name in group_choices
+    if value != "__custom__"
+]
 
 
 def _redirect_for_role(user):
@@ -100,6 +109,8 @@ def student_register_view(request):
             for name in college.students.values_list("department", flat=True)
             if name and name.strip()
         )
+        if not college.departments.exists():
+            department_names.update(DEFAULT_DEPARTMENT_NAMES)
         departments_by_college[str(college.pk)] = sorted(department_names, key=str.casefold)
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
