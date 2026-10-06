@@ -41,7 +41,7 @@ ACADEMIC_PROGRAMME_CHOICES = [
         ("Other Design", "Other Design"),
     ]),
     ("Medical & Health Sciences", [
-        ("Bachelor of Nursing (B.Sc Nursing)", "Bachelor of Nursing (B.Sc Nursing)"),
+        ("Nursing", "Nursing"),
         ("General Nursing and Midwifery (GNM)", "General Nursing and Midwifery (GNM)"),
         ("Bachelor of Physiotherapy (BPT)", "Bachelor of Physiotherapy (BPT)"),
         ("Bachelor of Pharmacy (B.Pharm)", "Bachelor of Pharmacy (B.Pharm)"),
@@ -52,15 +52,15 @@ ACADEMIC_PROGRAMME_CHOICES = [
         ("Other Health Sciences", "Other Health Sciences"),
     ]),
     ("Computer & IT", [
-        ("Bachelor of Computer Applications (BCA)", "Bachelor of Computer Applications (BCA)"),
+        ("BCA", "BCA"),
         ("Information Technology", "Information Technology"),
         ("Data Science", "Data Science"),
         ("Cyber Security", "Cyber Security"),
         ("Computer Applications", "Computer Applications"),
     ]),
     ("Management & Commerce", [
-        ("Bachelor of Business Administration (BBA)", "Bachelor of Business Administration (BBA)"),
-        ("Master of Business Administration (MBA)", "Master of Business Administration (MBA)"),
+        ("BBA", "BBA"),
+        ("MBA", "MBA"),
         ("Bachelor of Commerce (B.Com)", "Bachelor of Commerce (B.Com)"),
         ("Bachelor of Management Studies (BMS)", "Bachelor of Management Studies (BMS)"),
         ("Bachelor of Business Management (BBM)", "Bachelor of Business Management (BBM)"),
