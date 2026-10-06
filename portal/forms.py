@@ -107,6 +107,7 @@ ACADEMIC_PROGRAMME_CHOICES = [
         ("Bachelor of Library and Information Science (B.Lib.I.Sc)", "Bachelor of Library and Information Science (B.Lib.I.Sc)"),
         ("Bachelor of Travel and Tourism", "Bachelor of Travel and Tourism"),
         ("Other Undergraduate Programme", "Other Undergraduate Programme"),
+        ("__custom__", "Other / Custom department"),
     ]),
 ]
 
@@ -197,7 +198,13 @@ class CollegeProgramForm(forms.ModelForm):
 
 
 class DepartmentAttendanceForm(forms.ModelForm):
-    name = forms.ChoiceField(choices=ACADEMIC_PROGRAMME_CHOICES, label="Academic programme")
+    name = forms.ChoiceField(choices=ACADEMIC_PROGRAMME_CHOICES, label="Academic programme or department")
+    custom_department = forms.CharField(
+        max_length=150,
+        required=False,
+        label="Custom department name",
+        help_text="Fill this only when you selected Other / Custom department.",
+    )
     total_students = forms.IntegerField(required=False, min_value=0)
     avg_performance = forms.DecimalField(required=False, min_value=0, max_value=100)
     assessments_taken = forms.IntegerField(required=False, min_value=0)
@@ -206,6 +213,16 @@ class DepartmentAttendanceForm(forms.ModelForm):
     class Meta:
         model = Department
         fields = ["code", "name", "total_students", "attendance_pct", "avg_performance", "assessments_taken", "training_hours"]
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("name") == "__custom__":
+            custom_name = (cleaned.get("custom_department") or "").strip()
+            if not custom_name:
+                self.add_error("custom_department", "Enter the custom department name.")
+            else:
+                cleaned["name"] = custom_name
+        return cleaned
 
 
 class CollegeInvoiceForm(forms.ModelForm):
