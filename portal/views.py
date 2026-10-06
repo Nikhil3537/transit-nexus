@@ -496,7 +496,7 @@ def college_dashboard(request):
     context = {
         "profile": profile,
         "page_title": f"{profile.college_name} — Dashboard",
-        "page_subtitle": f"Academic Year: {profile.academic_year} · Semester: {profile.semester_label}",
+        "page_subtitle": f"Academic Year: {profile.academic_year}",
         "user_role_label": "College Admin",
         **_nav_context(COLLEGE_NAV, "Dashboard", "TRANSIT NEXUS", "LEARN · ASSESS · GROW"),
         "departments": departments,
