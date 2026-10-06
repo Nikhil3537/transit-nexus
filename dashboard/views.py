@@ -109,8 +109,11 @@ def student_register_view(request):
             for name in college.students.values_list("department", flat=True)
             if name and name.strip()
         )
-        if not college.departments.exists():
-            department_names.update(DEFAULT_DEPARTMENT_NAMES)
+        # Always include the shared programme catalogue, even when a college has
+        # one or more department records already configured. Otherwise a college
+        # with just (for example) Architecture saved only exposes that single
+        # department on the public registration form.
+        department_names.update(DEFAULT_DEPARTMENT_NAMES)
         departments_by_college[str(college.pk)] = sorted(department_names, key=str.casefold)
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
