@@ -25,18 +25,30 @@ from portal.models import AdminStudentRecord, CollegeProfile, OnlineTest, Online
 
 
 def _redirect_for_role(user):
-    """Send a freshly logged-in user to the dashboard that matches their role."""
-    if hasattr(user, "admin_profile"):
+    """Send each authenticated user to the dashboard matching their role."""
+
+    # ADMIN
+    if user.is_superuser or user.is_staff or hasattr(user, "admin_profile"):
         return redirect("admin_dashboard")
+
+    # COLLEGE
     if hasattr(user, "college_profile"):
         return redirect("college_dashboard")
+
+    # TRAINER
     if hasattr(user, "trainer_profile"):
         return redirect("trainer_dashboard")
+
+    # COMPANY
     if hasattr(user, "company_profile"):
         return redirect("company_dashboard")
-    if hasattr(user, "profile") and getattr(user.profile, "college_id", None):
-        return redirect("student_colleges")
-    return redirect("dashboard")  # default: student
+
+    # STUDENT
+    if hasattr(user, "profile"):
+        return redirect("dashboard")
+
+    # UNKNOWN ROLE
+    return redirect("login")
 
 
 def login_view(request):
