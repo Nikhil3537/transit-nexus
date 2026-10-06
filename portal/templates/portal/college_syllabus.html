@@ -1,0 +1,24 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Syllabus Coverage · Transit Nexus{% endblock %}
+{% block content %}
+{% include "portal/_college_csv_upload.html" %}
+<section class="panel">
+  <div class="panel-head"><h3>{% if edit_record %}Update Subject Coverage{% else %}Add Subject Coverage{% endif %}</h3></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    {% if edit_record %}<input type="hidden" name="record_id" value="{{ edit_record.pk }}">{% endif %}
+    {% for field in record_form %}<label>{{ field.label }}{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>{% endfor %}
+    <div><button class="btn btn-primary" type="submit">{% if edit_record %}Save Coverage{% else %}Add Coverage{% endif %}</button>{% if edit_record %} <a class="btn btn-secondary" href="{% url 'college_syllabus' %}">Cancel</a>{% endif %}</div>
+  </form>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>Subject Coverage</h3></div>
+  {% for s in coverage %}
+  <div class="skill-row">
+    <div class="skill-row-head"><span>{{ s.subject }} ({{ s.department }})</span><b>{{ s.coverage_pct }}% complete</b></div>
+    <div class="skill-track"><div class="skill-fill" style="width:{{ s.coverage_pct }}%"></div></div>
+    <div class="row-actions"><a class="btn btn-secondary" href="?edit={{ s.pk }}">Edit</a><form method="post" class="inline-form" onsubmit="return confirm('Delete this syllabus coverage record?');">{% csrf_token %}<input type="hidden" name="record_id" value="{{ s.pk }}"><input type="hidden" name="action" value="delete"><button class="btn btn-danger" type="submit">Delete</button></form></div>
+  </div>
+  {% empty %}<div class="empty-state"><i class="fa-solid fa-book-open"></i>No syllabus data yet.</div>{% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Search Students · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Search &amp; Filter</h3></div>
+  <form method="get" class="form-grid">
+    <div>
+      <label>Department</label>
+      <select name="department" style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:9px;">
+        <option value="">All</option>
+        {% for d in all_departments %}
+        <option value="{{ d }}" {% if d == selected_department %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Min Overall Score</label>
+      <input type="number" name="min_score" value="{{ min_score }}" placeholder="e.g. 70">
+    </div>
+    <div style="grid-column: 1 / -1;"><button type="submit" class="btn-primary" style="width:auto; padding:11px 28px;">Search</button></div>
+  </form>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>Results</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Student</th><th>Dept</th><th>Aptitude</th><th>Technical</th><th>Comm</th><th>Overall</th></tr></thead>
+    <tbody>
+    {% for c in candidates %}
+      <tr><td>{{ c.name }}</td><td>{{ c.department }}</td><td>{{ c.aptitude_score }}%</td>
+          <td>{{ c.technical_score }}%</td><td>{{ c.communication_score }}%</td>
+          <td><span class="tag tag-good">{{ c.overall_score }}%</span></td></tr>
+    {% empty %}<tr><td colspan="6">No matching candidates.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

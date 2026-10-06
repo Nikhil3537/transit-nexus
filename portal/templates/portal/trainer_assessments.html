@@ -1,0 +1,104 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Assessments · Transit Nexus{% endblock %}
+{% block content %}
+{% if messages %}{% for message in messages %}<p class="alert-{{ message.tags }}">{{ message }}</p>{% endfor %}{% endif %}
+{% if creation_errors %}<section class="panel alert-error"><h3>Test not created</h3><ul>{% for error in creation_errors %}<li>{{ error }}</li>{% endfor %}</ul></section>{% endif %}
+<section class="panel">
+  <div class="panel-head"><h3>Create and Schedule a Test</h3></div>
+  <form method="post" class="form-grid test-builder-form">
+    {% csrf_token %}
+    {{ schedule_form.as_p }}
+    <div class="question-editor-list" id="questionEditorList">
+      <fieldset class="question-editor">
+        <div class="question-editor-heading"><button class="drag-handle" draggable="true" type="button" title="Drag to reorder" aria-label="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></button><strong>Question <span class="question-number">1</span></strong><button class="remove-question" type="button" title="Remove question" aria-label="Remove question"><i class="fa-solid fa-trash"></i></button></div>
+        <label class="question-prompt-field">Question text<textarea name="question_prompt" rows="2" required></textarea></label>
+        <label>Question type<select name="question_type" class="question-type-select">{% for value, label in question_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+        <label class="question-options-field">Options / items, one per line<textarea name="question_options" rows="3"></textarea></label>
+        <label class="question-answers-field">Correct answer(s), one per line<textarea name="question_answers" rows="2"></textarea></label>
+        <label>Points<input name="question_points" type="number" min="1" max="100" value="1" required></label>
+      </fieldset>
+    </div>
+    <div class="test-builder-actions"><button class="btn btn-secondary" id="addQuestionButton" type="button"><i class="fa-solid fa-plus"></i> Add question</button><button class="btn btn-primary" type="submit">Schedule Test</button></div>
+  </form>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>My Scheduled Tests</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Test</th><th>Opens</th><th>Closes</th><th>Time limit</th><th>Questions</th><th>Results</th></tr></thead>
+    <tbody>{% for test in tests %}
+      <tr><td>{{ test.title }}</td><td>{{ test.opens_at|date:"d M Y H:i" }}</td><td>{{ test.closes_at|date:"d M Y H:i" }}</td><td>{{ test.duration_minutes }} min</td><td>{{ test.questions.count }}</td><td><a class="btn btn-secondary" href="{% url 'trainer_test_results' test.pk %}">View results</a></td></tr>
+    {% empty %}<tr><td colspan="6">No online tests created yet.</td></tr>{% endfor %}</tbody>
+  </table>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>Score Summaries</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Assessment</th><th>Avg Score</th><th>Date</th></tr></thead>
+    <tbody>
+    {% for a in assessments %}
+      <tr><td>{{ a.name }}</td><td>{{ a.avg_score }}%</td><td>{{ a.date|date:"d M Y" }}</td></tr>
+    {% empty %}<tr><td colspan="3">No assessments created yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+{% block page_scripts %}
+<script>
+  const questionList = document.getElementById("questionEditorList");
+  const questionTemplate = questionList.querySelector(".question-editor");
+
+  function updateQuestionCard(card) {
+    const type = card.querySelector(".question-type-select").value;
+    card.querySelector(".question-options-field").hidden = !["single", "multiple", "matching"].includes(type);
+    card.querySelector(".question-answers-field").hidden = ["essay", "file"].includes(type);
+    const optionsLabel = card.querySelector(".question-options-field");
+    const answerLabel = card.querySelector(".question-answers-field");
+    optionsLabel.firstChild.textContent = type === "matching" ? "Items to order, one per line" : "Options, one per line";
+    answerLabel.firstChild.textContent = type === "matching" ? "Correct order, one item per line" : type === "numeric" ? "Accepted number(s), one per line" : "Correct answer(s), one per line";
+    card.querySelector(".question-answers-field textarea").required = !["essay", "file"].includes(type);
+  }
+
+  function updateQuestionNumbers() {
+    questionList.querySelectorAll(".question-editor").forEach((card, index) => {
+      card.querySelector(".question-number").textContent = index + 1;
+      updateQuestionCard(card);
+    });
+  }
+
+  questionList.addEventListener("change", (event) => {
+    if (event.target.matches(".question-type-select")) updateQuestionCard(event.target.closest(".question-editor"));
+  });
+  questionList.addEventListener("click", (event) => {
+    const button = event.target.closest(".remove-question");
+    if (!button) return;
+    const cards = questionList.querySelectorAll(".question-editor");
+    if (cards.length > 1) button.closest(".question-editor").remove();
+    updateQuestionNumbers();
+  });
+  document.getElementById("addQuestionButton").addEventListener("click", () => {
+    const question = questionTemplate.cloneNode(true);
+    question.querySelectorAll("textarea").forEach((field) => { field.value = ""; });
+    question.querySelector(".question-type-select").selectedIndex = 0;
+    question.querySelector('input[name="question_points"]').value = "1";
+    questionList.appendChild(question);
+    updateQuestionNumbers();
+    question.querySelector(".question-prompt-field textarea").focus();
+  });
+
+  let draggedCard = null;
+  questionList.addEventListener("dragstart", (event) => {
+    if (!event.target.closest(".drag-handle")) { event.preventDefault(); return; }
+    draggedCard = event.target.closest(".question-editor");
+    event.dataTransfer.effectAllowed = "move";
+  });
+  questionList.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    const target = event.target.closest(".question-editor");
+    if (!draggedCard || !target || target === draggedCard) return;
+    const bounds = target.getBoundingClientRect();
+    questionList.insertBefore(draggedCard, event.clientY < bounds.top + bounds.height / 2 ? target : target.nextSibling);
+  });
+  questionList.addEventListener("dragend", () => { draggedCard = null; updateQuestionNumbers(); });
+  updateQuestionNumbers();
+</script>
+{% endblock %}

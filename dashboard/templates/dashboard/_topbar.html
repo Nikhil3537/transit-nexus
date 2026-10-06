@@ -1,0 +1,33 @@
+{% load static %}
+<header class="topbar">
+  <img class="topbar-brand" src="{% static 'dashboard/img/transit-logo.png' %}" alt="Transit Training and Recruitment Partner">
+  <div class="topbar-welcome">
+    <img class="avatar-sm" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=4361ee&color=fff" alt="avatar">
+    <div>
+      <h2>{% if page_title %}{{ page_title }}{% else %}Welcome back, {{ profile.user.first_name }} {{ profile.user.last_name }} <span class="wave">&#128075;</span>{% endif %}</h2>
+      <p>{% if page_subtitle %}{{ page_subtitle }}{% else %}Keep learning, keep growing!{% endif %}</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <div class="semester-pill">
+      <i class="fa-solid fa-calendar"></i>
+      <div>
+        <span class="pill-label">{{ profile.semester_label }}</span>
+        <span class="pill-value">{{ profile.semester_range }}</span>
+      </div>
+      <i class="fa-solid fa-chevron-down"></i>
+    </div>
+    <a href="{% url 'messages_list' %}" class="icon-btn">
+      <i class="fa-regular fa-bell"></i>
+      {% if unread_message_count %}<span class="badge-dot">{{ unread_message_count }}</span>{% endif %}
+    </a>
+    <div class="user-chip">
+      <img class="avatar-sm" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=4361ee&color=fff" alt="avatar">
+      <div>
+        <span class="user-name">{{ profile.user.first_name }} {{ profile.user.last_name }}</span>
+        <span class="user-role">Student</span>
+      </div>
+      <i class="fa-solid fa-chevron-down"></i>
+    </div>
+  </div>
+</header>

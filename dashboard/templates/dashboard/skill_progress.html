@@ -1,0 +1,35 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Skill Progress · Transit Nexus{% endblock %}
+{% block content %}
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Skill Proficiency</h3></div>
+    {% for s in skills %}
+    <div class="skill-row">
+      <div class="skill-row-head"><span>{{ s.name }}</span><b>{{ s.proficiency_percent }}%</b></div>
+      <div class="skill-track"><div class="skill-fill" style="width:{{ s.proficiency_percent }}%"></div></div>
+    </div>
+    {% empty %}
+    <div class="empty-state"><i class="fa-solid fa-arrow-trend-up"></i>No skills tracked yet.</div>
+    {% endfor %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Strengths &amp; Weaknesses</h3></div>
+    <div class="sw-grid">
+      <div>
+        <p class="sw-title">Top Strengths</p>
+        {% for s in strengths %}
+          <p class="sw-item good"><i class="fa-solid fa-circle-check"></i> {{ s.title }}</p>
+        {% endfor %}
+      </div>
+      <div>
+        <p class="sw-title">Areas to Improve</p>
+        {% for a in improvements %}
+          <p class="sw-item bad"><i class="fa-solid fa-circle-exclamation"></i> {{ a.title }}</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

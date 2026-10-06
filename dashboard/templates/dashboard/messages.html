@@ -1,0 +1,19 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Messages · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Inbox</h3></div>
+  {% for m in message_list %}
+  <div class="message-item">
+    <div class="message-avatar">{{ m.sender_name|slice:":1" }}</div>
+    <div class="message-body">
+      <h4>{{ m.sender_name }} <span class="msg-role">{{ m.sender_role }}</span></h4>
+      <p><strong>{{ m.subject }}</strong> &mdash; {{ m.body }}</p>
+    </div>
+    <div class="message-time">{{ m.timestamp|date:"d M, h:i A" }}</div>
+  </div>
+  {% empty %}
+  <div class="empty-state"><i class="fa-solid fa-comment-dots"></i>No messages yet.</div>
+  {% endfor %}
+</section>
+{% endblock %}

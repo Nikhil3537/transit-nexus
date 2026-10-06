@@ -1,0 +1,14 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Notifications · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Notifications</h3></div>
+  {% for n in notifications %}
+  <div class="message-item">
+    <div class="message-avatar"><i class="fa-regular fa-bell"></i></div>
+    <div class="message-body"><p>{{ n.message }}</p></div>
+    <div class="message-time">{{ n.posted_date|date:"d M Y" }}</div>
+  </div>
+  {% empty %}<div class="empty-state"><i class="fa-regular fa-bell"></i>No notifications.</div>{% endfor %}
+</section>
+{% endblock %}

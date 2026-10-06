@@ -1,0 +1,28 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}My Payments · Transit Nexus{% endblock %}
+{% block content %}
+<section class="payment-summary">
+  <div class="payment-stat"><span>Total Paid</span><b style="color:var(--green);">&#8377;{{ total_paid }}</b></div>
+  <div class="payment-stat"><span>Total Due</span><b style="color:var(--red);">&#8377;{{ total_due }}</b></div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Payment History</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Description</th><th>Amount</th><th>Due Date</th><th>Paid Date</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for p in payments %}
+      <tr>
+        <td>{{ p.description }}</td>
+        <td>&#8377;{{ p.amount }}</td>
+        <td>{{ p.due_date|date:"d M Y" }}</td>
+        <td>{% if p.paid_date %}{{ p.paid_date|date:"d M Y" }}{% else %}&mdash;{% endif %}</td>
+        <td><span class="tag tag-{{ p.status }}">{{ p.get_status_display }}</span></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5">No payment records yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

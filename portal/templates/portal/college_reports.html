@@ -1,0 +1,24 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Reports & Analytics · Transit Nexus{% endblock %}
+{% block content %}
+{% include "portal/_college_csv_upload.html" %}
+<section class="panel">
+  <div class="panel-head"><h3>{% if edit_record %}Update Report{% else %}Add Report{% endif %}</h3></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    {% if edit_record %}<input type="hidden" name="record_id" value="{{ edit_record.pk }}">{% endif %}
+    {% for field in record_form %}<label>{{ field.label }}{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>{% endfor %}
+    <div><button class="btn btn-primary" type="submit">{% if edit_record %}Save Changes{% else %}Create Report{% endif %}</button>{% if edit_record %} <a class="btn btn-secondary" href="{% url 'college_reports' %}">Cancel</a>{% endif %}</div>
+  </form>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>Quick Reports</h3></div>
+  <div class="quick-links">
+    {% for r in quick_reports %}
+    <div class="quick-link"><i class="fa-solid fa-file-lines"></i> {{ r.title }} <span style="margin-left:auto"><a href="?edit={{ r.pk }}">Edit</a><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="record_id" value="{{ r.pk }}"><input type="hidden" name="action" value="delete"><button class="btn btn-danger" type="submit">Delete</button></form></span></div>
+    {% empty %}
+    <a href="#" class="quick-link"><i class="fa-solid fa-file-lines"></i> Department Wise Performance Report</a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

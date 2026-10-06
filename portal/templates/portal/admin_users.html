@@ -1,0 +1,165 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Users & Roles · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Account Type</h3></div>
+  <div class="tab-row" style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-top:0.5rem;">
+    <a href="{% url 'admin_users' %}?role_tab=all{% if selected_college %}&college_filter={{ selected_college|urlencode }}{% endif %}" class="btn {% if selected_role_tab == 'all' %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
+    <a href="{% url 'admin_users' %}?role_tab=student{% if selected_college %}&college_filter={{ selected_college|urlencode }}{% endif %}" class="btn {% if selected_role_tab == 'student' %}btn-primary{% else %}btn-secondary{% endif %}">Student</a>
+    <a href="{% url 'admin_users' %}?role_tab=trainer{% if selected_college %}&college_filter={{ selected_college|urlencode }}{% endif %}" class="btn {% if selected_role_tab == 'trainer' %}btn-primary{% else %}btn-secondary{% endif %}">Trainer</a>
+    <a href="{% url 'admin_users' %}?role_tab=company{% if selected_college %}&college_filter={{ selected_college|urlencode }}{% endif %}" class="btn {% if selected_role_tab == 'company' %}btn-primary{% else %}btn-secondary{% endif %}">Company</a>
+  </div>
+</section>
+
+<section class="stat-grid" style="grid-template-columns: repeat(4, minmax(180px, 1fr)); margin-top: 1rem;">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="fa-solid fa-users"></i></div>
+    <div class="stat-body"><h3>Total Accounts</h3><p class="stat-value">{{ total_accounts }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fa-solid fa-user-graduate"></i></div>
+    <div class="stat-body"><h3>Students</h3><p class="stat-value">{{ student_accounts|default:0 }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="fa-solid fa-building-columns"></i></div>
+    <div class="stat-body"><h3>Colleges</h3><p class="stat-value">{{ college_accounts|default:0 }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="fa-solid fa-clock"></i></div>
+    <div class="stat-body"><h3>Pending</h3><p class="stat-value">{{ pending_accounts|default:0 }}</p></div>
+  </div>
+</section>
+
+<section id="college-form" class="panel" style="margin-top: 1rem;">
+  <div class="panel-head"><h3>Create College Account</h3><span class="muted">Creates a college workspace and pending login</span></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="create">
+    <input type="hidden" name="role" value="college">
+    <label>College name<input name="college_name" required></label>
+    <label>Location<input name="college_location" placeholder="City, State"></label>
+    <label>Login username<input name="username" required></label>
+    <label>Temporary password<input name="password" type="password" required></label>
+    <label>Admin first name<input name="first_name"></label>
+    <label>Admin last name<input name="last_name"></label>
+    <label>Email<input name="email" type="email"></label>
+    <div><button class="btn btn-primary" type="submit">Create College</button></div>
+  </form>
+</section>
+
+<section class="grid-2" style="margin-top: 1rem;">
+  <section id="student-form" class="panel">
+    <div class="panel-head"><h3>Create Student</h3><span class="muted">Assigned to one exact college</span></div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create">
+      <input type="hidden" name="role" value="student">
+
+      <label>Username<input name="username" required></label>
+      <label>Password<input name="password" type="password" required></label>
+      <label>First name<input name="first_name"></label>
+      <label>Last name<input name="last_name"></label>
+      <label>Email<input name="email" type="email"></label>
+
+      {% if college_options %}
+        <label>College <span class="muted">(required)</span>
+          <select name="college_name" required>
+            <option value="">Select college</option>
+            {% for college in college_options %}
+              <option value="{{ college }}">{{ college }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      {% else %}
+        <label>College <span class="muted">(required)</span><input name="college_name" placeholder="Enter college name" required></label>
+      {% endif %}
+
+      {% if department_options %}
+        <label>Department <span class="muted">(required)</span>
+          <select name="department" required>
+            <option value="">Select department</option>
+            {% for department in department_options %}
+              <option value="{{ department }}">{{ department }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      {% else %}
+        <label>Department <span class="muted">(required)</span><input name="department" required></label>
+      {% endif %}
+
+      <div><button class="btn btn-primary" type="submit">Create Student Account</button></div>
+    </form>
+  </section>
+
+  <section id="other-accounts" class="panel">
+    <div class="panel-head"><h3>Create Other Accounts</h3><span class="muted">Trainer, company, platform owner</span></div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create">
+      <label>Role<select name="role"><option value="trainer">Trainer</option><option value="company">Company</option><option value="owner">Platform Owner</option></select></label>
+      <label>Username<input name="username" required></label>
+      <label>Password<input name="password" type="password" required></label>
+      <label>First name<input name="first_name"></label>
+      <label>Last name<input name="last_name"></label>
+      <label>Email<input name="email" type="email"></label>
+      {% if college_options %}
+        <label>College name <span class="muted">(required for Trainer role)</span>
+          <select name="college_name">
+            <option value="">Select college</option>
+            {% for college in college_options %}
+              <option value="{{ college }}">{{ college }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      {% else %}
+        <label>College name <span class="muted">(required for Trainer role)</span><input name="college_name" placeholder="Enter college name"></label>
+      {% endif %}
+      <div><button class="btn btn-primary" type="submit">Create Pending Account</button></div>
+    </form>
+  </section>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>All Accounts</h3>
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <form method="get" style="display:flex; align-items:center; gap:8px;">
+        <label style="margin:0; font-size:0.9rem;">College filter</label>
+        <select name="college_filter">
+          <option value="">All colleges</option>
+          {% for college in college_options %}
+            <option value="{{ college }}" {% if selected_college == college %}selected{% endif %}>{{ college }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-secondary" type="submit">Apply</button>
+        {% if selected_college %}
+          <a class="btn btn-secondary" href="{% url 'admin_users' %}">Clear</a>
+        {% endif %}
+      </form>
+      <form method="post" onsubmit="return confirm('Approve all pending accounts?');">{% csrf_token %}<button class="btn btn-primary" name="action" value="approve_pending" type="submit">Approve All Pending</button></form>
+    </div>
+  </div>
+  <table class="data-table">
+    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Email</th><th>Access</th><th>Action</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.user.username }}</td><td>{{ r.user.first_name }} {{ r.user.last_name }}</td>
+        <td><span class="tag tag-good">{{ r.role }}</span></td><td>{{ r.user.email|default:"—" }}</td>
+        <td>{% if r.user.is_active %}<span class="tag tag-good">Approved</span>{% else %}<span class="tag tag-warn">Pending</span>{% endif %}</td>
+        <td>
+          {% if r.user != request.user %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="user_id" value="{{ r.user.id }}">
+            {% if r.user.is_active %}<button class="btn btn-secondary" name="action" value="disable" type="submit">Disable</button>{% else %}<button class="btn btn-primary" name="action" value="approve" type="submit">Approve</button>{% endif %}
+            <button class="btn btn-danger" name="action" value="delete" type="submit" onclick="return confirm('Delete this account permanently?');">Delete</button>
+          </form>
+          {% else %}<span class="muted">Current account</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

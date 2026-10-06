@@ -1,0 +1,37 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Bulk Import · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Import Accounts from CSV</h3><span class="muted">New accounts will be pending approval</span></div>
+  <form method="post" enctype="multipart/form-data" class="form-grid">
+    {% csrf_token %}
+    <label>Account type
+      <select name="role" required>
+        <option value="">Select type</option>
+        <option value="students">Students</option>
+        <option value="colleges">Colleges</option>
+        <option value="trainers">Trainers</option>
+        <option value="companies">Companies</option>
+      </select>
+    </label>
+    <label>CSV file<input type="file" name="file" accept=".csv,text/csv" required></label>
+    <div><button class="btn btn-primary" type="submit"><i class="fa-solid fa-file-import"></i> Import CSV</button></div>
+  </form>
+  {% if errors %}
+  <div class="panel" role="alert">
+    <h4>Import not applied</h4>
+    <ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>CSV Templates</h3><span class="muted">Use one file per account type</span></div>
+  <p>Every row needs a unique username and password. Student and college rows also need a college name; student rows need a department; company rows need a company name.</p>
+  <div class="form-grid">
+    {% for role in template_roles %}
+    <div><a class="btn btn-secondary" href="{% url 'bulk_import' %}?template={{ role }}"><i class="fa-solid fa-download"></i> {{ role|title }} template</a></div>
+    {% endfor %}
+  </div>
+  <p class="muted">Save your spreadsheet as CSV UTF-8 before uploading. Imports are validated before saving; if any row has an error, no accounts from that file are created. Maximum file size: 5 MB.</p>
+</section>
+{% endblock %}

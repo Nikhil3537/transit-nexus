@@ -1,0 +1,20 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Job Drives · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Job Drives</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Drive</th><th>Location</th><th>Date</th><th>Positions</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for d in drives %}
+      <tr>
+        <td>{{ d.title }}</td><td>{{ d.location }}</td><td>{{ d.date|date:"d M Y" }}</td><td>{{ d.positions }}</td>
+        <td>{% if d.status == "completed" %}<span class="tag tag-good">Completed</span>
+            {% elif d.status == "ongoing" %}<span class="tag tag-average">Ongoing</span>
+            {% else %}<span class="tag tag-pending">Upcoming</span>{% endif %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="5">No job drives yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

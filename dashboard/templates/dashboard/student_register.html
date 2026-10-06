@@ -1,0 +1,82 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}Create Student Account · Transit Nexus{% endblock %}
+{% block body %}
+<div class="auth-page">
+  <div class="auth-module">
+    <div class="auth-card">
+      <div class="auth-corner-brand">
+        <img src="{% static 'dashboard/img/transit-logo.png' %}" alt="Transit Training and Recruitment Partner">
+      </div>
+      <h2>Create Student Account</h2>
+      <p class="auth-sub">Choose your college first, then select one of its departments.</p>
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="{% if message.tags == 'success' %}auth-success{% else %}auth-error{% endif %}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required>
+
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required>
+
+        <label for="first_name">First name</label>
+        <input type="text" id="first_name" name="first_name">
+
+        <label for="last_name">Last name</label>
+        <input type="text" id="last_name" name="last_name">
+
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email">
+
+        <label for="college_id">College name</label>
+        <select id="college_id" name="college_id" autocomplete="organization" required>
+          <option value="">Choose your college</option>
+          {% for college in colleges %}<option value="{{ college.pk }}" {% if form_values.college_id == college.pk|stringformat:"s" %}selected{% endif %}>{{ college.college_name }}</option>{% endfor %}
+        </select>
+
+        <label for="department_name">Department name</label>
+        <select id="department_name" name="department_name" required disabled>
+          <option value="">Choose a college first</option>
+        </select>
+
+        <button type="submit" class="btn-primary">Create Account</button>
+      </form>
+
+      <p class="auth-hint"><a href="{% url 'login' %}" style="color: var(--blue); font-weight: 600;">Back to sign in</a></p>
+    </div>
+  </div>
+</div>
+{{ departments_by_college|json_script:"college-departments-data" }}
+<script>
+  const collegeSelect = document.getElementById("college_id");
+  const departmentSelect = document.getElementById("department_name");
+  const departmentsByCollege = JSON.parse(document.getElementById("college-departments-data").textContent);
+  const selectedDepartment = "{{ form_values.department_name|escapejs }}";
+
+  function updateDepartments() {
+    const departments = departmentsByCollege[collegeSelect.value] || [];
+    departmentSelect.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = departments.length ? "Choose your department" : (collegeSelect.value ? "No departments available" : "Choose a college first");
+    departmentSelect.appendChild(placeholder);
+    departments.forEach((departmentName) => {
+      const option = document.createElement("option");
+      option.value = departmentName;
+      option.textContent = departmentName;
+      if (departmentName === selectedDepartment) option.selected = true;
+      departmentSelect.appendChild(option);
+    });
+    departmentSelect.disabled = departments.length === 0;
+  }
+
+  collegeSelect.addEventListener("change", updateDepartments);
+  updateDepartments();
+</script>
+{% endblock %}

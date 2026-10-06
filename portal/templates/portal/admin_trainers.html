@@ -1,0 +1,45 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Trainer Directory · Transit Nexus{% endblock %}
+{% block content %}
+{% if messages %}
+  {% for message in messages %}<div class="{% if message.tags == 'success' %}alert-success{% else %}field-error{% endif %}">{{ message }}</div>{% endfor %}
+{% endif %}
+
+<section class="panel">
+  <div class="panel-head"><h3>Create Trainer Account</h3><span class="muted">New accounts require approval before sign in.</span></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    <label>Username<input name="username" autocomplete="username" required></label>
+    <label>Temporary password<input name="password" type="password" autocomplete="new-password" required></label>
+    <label>First name<input name="first_name" required></label>
+    <label>Last name<input name="last_name"></label>
+    <label>Email<input name="email" type="email" required></label>
+    <label>Phone number<input name="phone" type="tel" autocomplete="tel"></label>
+    <label>Domain / specialization<input name="domain" placeholder="e.g. Data Science, Java, Web Development" required></label>
+    <label>Assigned college<select name="college"><option value="">Not assigned</option>{% for college in colleges %}<option value="{{ college.pk }}">{{ college.college_name }}</option>{% endfor %}</select></label>
+    <div><button class="btn btn-primary" type="submit">Create Trainer</button></div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Trainer Directory</h3><span class="muted">{{ trainers|length }} trainer{{ trainers|length|pluralize }}</span></div>
+  <table class="data-table">
+    <thead><tr><th>Name</th><th>Domain</th><th>Email</th><th>Phone</th><th>College</th><th>Username</th><th>Access</th></tr></thead>
+    <tbody>
+    {% for trainer in trainers %}
+      <tr>
+        <td>{{ trainer.user.get_full_name|default:trainer.user.username }}</td>
+        <td>{{ trainer.domain|default:"—" }}</td>
+        <td>{{ trainer.user.email|default:"—" }}</td>
+        <td>{{ trainer.phone|default:"—" }}</td>
+        <td>{{ trainer.college.college_name|default:"Unassigned" }}</td>
+        <td>{{ trainer.user.username }}</td>
+        <td>{% if trainer.user.is_active %}<span class="tag tag-good">Approved</span>{% else %}<span class="tag tag-warn">Pending approval</span>{% endif %}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7">No trainer accounts yet. Create one using the form above.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

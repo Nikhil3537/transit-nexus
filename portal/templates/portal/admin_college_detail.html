@@ -1,0 +1,75 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}{{ college.college_name }} · Platform Admin{% endblock %}
+{% block content %}
+<p><a href="{% url 'admin_colleges' %}"><i class="fa-solid fa-arrow-left"></i> Colleges</a></p>
+{% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+<section class="stat-grid college-stat-grid">
+  <div class="stat-card"><div class="stat-icon blue"><i class="fa-solid fa-user-graduate"></i></div><div class="stat-body"><h3>Students</h3><p class="stat-value">{{ total_students }}</p></div></div>
+  <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-chalkboard-user"></i></div><div class="stat-body"><h3>Programs</h3><p class="stat-value">{{ total_programs }}</p></div></div>
+  <div class="stat-card"><div class="stat-icon purple"><i class="fa-solid fa-clipboard-list"></i></div><div class="stat-body"><h3>Assessments</h3><p class="stat-value">{{ total_assessments }}</p></div></div>
+  <div class="stat-card"><div class="stat-icon orange"><i class="fa-solid fa-users"></i></div><div class="stat-body"><h3>Faculty</h3><p class="stat-value">{{ total_faculty }}</p></div></div>
+  <div class="stat-card"><div class="stat-icon teal"><i class="fa-solid fa-file-invoice-dollar"></i></div><div class="stat-body"><h3>Pending Payment</h3><p class="stat-value">&#8377;{{ total_pending_payment }}</p></div></div>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>{{ college.college_name }}</h3><span class="muted">{{ college.location }} · {{ college.academic_year }} · {{ college.semester_label }}</span></div>
+  <p>College administrator: {{ college.user.get_full_name|default:college.user.username }}{% if college.user.email %} · {{ college.user.email }}{% endif %}</p>
+  <nav class="college-section-nav" aria-label="College records">
+    <a href="#students">Students</a><a href="#programs">Training Programs</a><a href="#assessments">Assessments</a><a href="#attendance">Attendance</a><a href="#payments">Payments</a><a href="#placements">Placements</a><a href="#syllabus">Syllabus</a><a href="#reports">Reports</a>
+  </nav>
+</section>
+<section class="panel" id="students">
+  <div class="panel-head"><h3>Students</h3><span>{{ total_students }} records</span></div>
+  <details class="manual-entry"><summary>Add student</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_student">{{ student_form.as_p }}<button class="btn btn-primary" type="submit">Save student</button></form></details>
+  {% for group in student_groups %}
+    <h4>{{ group.department }} · {{ group.semester }} <span class="muted">({{ group.students|length }})</span></h4>
+    <table class="data-table"><thead><tr><th>Student</th><th>Average score</th><th>Attendance</th></tr></thead><tbody>
+      {% for s in group.students %}<tr><td>{{ s.name }}{% if s.is_account %} <span class="tag tag-good">Account</span>{% endif %}</td><td>{% if s.avg_score is not None %}{{ s.avg_score }}%{% else %}—{% endif %}</td><td>{% if s.attendance_pct is not None %}{{ s.attendance_pct }}%{% else %}—{% endif %}</td></tr>{% endfor %}
+    </tbody></table>
+  {% empty %}<div class="empty-state">No student records for this college.</div>{% endfor %}
+</section>
+<section class="panel" id="programs">
+  <div class="panel-head"><h3>Training Programs</h3><span>{{ total_programs }} records</span></div>
+  <details class="manual-entry"><summary>Add training program</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_program">{{ program_form.as_p }}<button class="btn btn-primary" type="submit">Save program</button></form></details>
+  <table class="data-table"><thead><tr><th>Program</th><th>Students</th><th>Status</th></tr></thead><tbody>
+    {% for p in programs %}<tr><td>{{ p.name }}</td><td>{{ p.students_count }}</td><td>{{ p.get_status_display }}</td></tr>{% empty %}<tr><td colspan="3">No programs for this college.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+<section class="panel" id="assessments">
+  <div class="panel-head"><h3>Assessments</h3><span>{{ total_assessments }} records</span></div>
+  <details class="manual-entry"><summary>Add assessment</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_assessment">{{ assessment_form.as_p }}<button class="btn btn-primary" type="submit">Save assessment</button></form></details>
+  <table class="data-table"><thead><tr><th>Assessment</th><th>Department</th><th>Date</th><th>Average</th><th>Status</th></tr></thead><tbody>
+    {% for a in assessments %}<tr><td>{{ a.name }}</td><td>{{ a.department }}</td><td>{{ a.date|date:"d M Y" }}</td><td>{{ a.avg_score|default_if_none:"—" }}{% if a.avg_score %}%{% endif %}</td><td>{{ a.get_status_display }}</td></tr>{% empty %}<tr><td colspan="5">No assessments for this college.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+<section class="panel" id="attendance">
+  <div class="panel-head"><h3>Attendance by Department</h3></div>
+  <details class="manual-entry"><summary>Add department attendance</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_department">{{ department_form.as_p }}<button class="btn btn-primary" type="submit">Save department</button></form></details>
+  <table class="data-table"><thead><tr><th>Department</th><th>Students</th><th>Attendance</th><th>Training hours</th><th>Tracking</th></tr></thead><tbody>
+    {% for d in departments %}<tr><td>{{ d.name }} ({{ d.code }})</td><td>{{ d.total_students }}</td><td>{{ d.attendance_pct }}%</td><td>{{ d.training_hours }}</td><td><form method="post" class="attendance-toggle-form">{% csrf_token %}<input type="hidden" name="action" value="toggle_attendance"><input type="hidden" name="department_id" value="{{ d.pk }}"><input type="hidden" name="enabled" value="{% if d.attendance_enabled %}0{% else %}1{% endif %}"><button class="attendance-toggle {% if d.attendance_enabled %}is-on{% else %}is-off{% endif %}" type="submit" role="switch" aria-checked="{{ d.attendance_enabled|yesno:'true,false' }}" aria-label="Attendance tracking for {{ d.name }}: {% if d.attendance_enabled %}on, turn off{% else %}off, turn on{% endif %}"><span class="attendance-toggle-track" aria-hidden="true"><span class="attendance-toggle-knob"></span></span><span>{% if d.attendance_enabled %}On{% else %}Off{% endif %}</span></button></form></td></tr>{% empty %}<tr><td colspan="5">No department attendance data.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+<section class="panel" id="payments">
+  <div class="panel-head"><h3>Payments &amp; Invoices</h3><span>Outstanding: &#8377;{{ total_pending_payment }}</span></div>
+  <details class="manual-entry"><summary>Add payment or invoice</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_payment">{{ payment_form.as_p }}<button class="btn btn-primary" type="submit">Save invoice</button></form></details>
+  <table class="data-table"><thead><tr><th>Invoice</th><th>Issued</th><th>Amount</th><th>Status</th></tr></thead><tbody>
+    {% for invoice in invoices %}<tr><td>{{ invoice.invoice_no }}</td><td>{{ invoice.issued_date|date:"d M Y" }}</td><td>&#8377;{{ invoice.amount }}</td><td>{{ invoice.get_status_display }}</td></tr>{% empty %}<tr><td colspan="4">No invoice records for this college.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+<section class="panel" id="placements">
+  <div class="panel-head"><h3>Placements</h3><span>{{ total_placed }} students placed</span></div>
+  <details class="manual-entry"><summary>Add placement</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_placement">{{ placement_form.as_p }}<button class="btn btn-primary" type="submit">Save placement</button></form></details>
+  <table class="data-table"><thead><tr><th>Company</th><th>Students placed</th><th>Package (LPA)</th><th>Drive date</th></tr></thead><tbody>
+    {% for p in placements %}<tr><td>{{ p.company_name }}</td><td>{{ p.students_placed }}</td><td>{{ p.package_lpa }}</td><td>{{ p.drive_date|date:"d M Y" }}</td></tr>{% empty %}<tr><td colspan="4">No placement records for this college.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+<section class="panel" id="syllabus">
+  <div class="panel-head"><h3>Syllabus Coverage</h3></div>
+  <details class="manual-entry"><summary>Add syllabus coverage</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_syllabus">{{ syllabus_form.as_p }}<button class="btn btn-primary" type="submit">Save syllabus entry</button></form></details>
+  {% for item in syllabus_coverage %}<div class="skill-row"><div class="skill-row-head"><span>{{ item.subject }} · {{ item.department }}</span><b>{{ item.coverage_pct }}%</b></div><div class="skill-track"><div class="skill-fill" style="width:{{ item.coverage_pct }}%"></div></div></div>{% empty %}<p class="muted">No syllabus coverage records for this college.</p>{% endfor %}
+</section>
+<section class="panel" id="reports">
+  <div class="panel-head"><h3>Reports</h3></div>
+  <details class="manual-entry"><summary>Add report</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_report">{{ report_form.as_p }}<button class="btn btn-primary" type="submit">Save report</button></form></details>
+  <ul>{% for report in reports %}<li>{{ report.title }}</li>{% empty %}<li>No reports for this college.</li>{% endfor %}</ul>
+</section>
+{% endblock %}

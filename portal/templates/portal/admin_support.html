@@ -1,0 +1,23 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Support & Issues · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Support Tickets</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Ticket</th><th>College</th><th>Issue</th><th>Priority</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for t in tickets %}
+      <tr>
+        <td>{{ t.ticket_code }}</td><td>{{ t.college_name }}</td><td>{{ t.issue }}</td>
+        <td>{% if t.priority == "High" %}<span class="tag tag-needs-improvement">High</span>
+            {% elif t.priority == "Medium" %}<span class="tag tag-average">Medium</span>
+            {% else %}<span class="tag tag-good">Low</span>{% endif %}</td>
+        <td>{% if t.status == "Resolved" %}<span class="tag tag-good">Resolved</span>
+            {% elif t.status == "In Progress" %}<span class="tag tag-average">In Progress</span>
+            {% else %}<span class="tag tag-needs-improvement">Open</span>{% endif %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="5">No tickets raised.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

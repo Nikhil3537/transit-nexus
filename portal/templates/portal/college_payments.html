@@ -1,0 +1,26 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Payments · Transit Nexus{% endblock %}
+{% block content %}
+{% include "portal/_college_csv_upload.html" %}
+<section class="panel">
+  <div class="panel-head"><h3>{% if edit_invoice %}Update Invoice{% else %}Add Invoice{% endif %}</h3></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    {% if edit_invoice %}<input type="hidden" name="record_id" value="{{ edit_invoice.pk }}">{% endif %}
+    {% for field in payment_form %}<label>{{ field.label }}{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>{% endfor %}
+    <div><button class="btn btn-primary" type="submit">{% if edit_invoice %}Save Changes{% else %}Create Invoice{% endif %}</button>{% if edit_invoice %} <a class="btn btn-secondary" href="{% url 'college_payments' %}">Cancel</a>{% endif %}</div>
+  </form>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>Invoices</h3><span class="muted">{{ invoices|length }} records for {{ profile.college_name }}</span></div>
+  <table class="data-table">
+    <thead><tr><th>Invoice</th><th>Issued date</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for invoice in invoices %}
+      <tr><td>{{ invoice.invoice_no }}</td><td>{{ invoice.issued_date|date:"d M Y" }}</td><td>&#8377;{{ invoice.amount }}</td>
+        <td>{% if invoice.status == "paid" %}<span class="tag tag-good">Paid</span>{% elif invoice.status == "overdue" %}<span class="tag tag-needs-improvement">Overdue</span>{% else %}<span class="tag tag-average">Due</span>{% endif %}</td><td><a class="btn btn-secondary" href="?edit={{ invoice.pk }}">Edit</a><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="record_id" value="{{ invoice.pk }}"><input type="hidden" name="action" value="delete"><button class="btn btn-danger" type="submit">Delete</button></form></td></tr>
+      {% empty %}<tr><td colspan="5">No invoices uploaded yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

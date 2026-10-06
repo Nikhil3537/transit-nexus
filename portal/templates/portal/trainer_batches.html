@@ -1,0 +1,15 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}My Batches · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>My Batches</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Batch</th><th>Students</th><th>Attendance</th></tr></thead>
+    <tbody>
+    {% for b in batches %}
+      <tr><td>{{ b.name }}</td><td>{{ b.total_students }}</td><td><span class="tag tag-good">{{ b.attendance_pct }}%</span></td></tr>
+    {% empty %}<tr><td colspan="3">No batches assigned yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

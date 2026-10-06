@@ -1,0 +1,30 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Assignments · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>All Assignments</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Assignment</th><th>Course</th><th>Due Date</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for a in assignments %}
+      <tr>
+        <td>{{ a.title }}</td>
+        <td>{{ a.course.name }}</td>
+        <td>{{ a.due_date|date:"d M Y" }}</td>
+        <td>
+          {% if a.status == "submitted" %}
+            <span class="tag tag-good">Submitted</span>
+          {% elif a.status == "in_progress" %}
+            <span class="tag tag-average">In Progress</span>
+          {% else %}
+            <span class="tag tag-pending">Not Started</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4">No assignments yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

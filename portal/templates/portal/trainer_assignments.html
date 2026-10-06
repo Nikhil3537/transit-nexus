@@ -1,0 +1,16 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Assignments · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Uploaded Assignments</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Assignment</th><th>Batch</th><th>Due Date</th><th>Submissions</th></tr></thead>
+    <tbody>
+    {% for a in assignments %}
+      <tr><td>{{ a.title }}</td><td>{{ a.batch_name }}</td><td>{{ a.due_date|date:"d M Y" }}</td>
+          <td>{{ a.submissions_count }} / {{ a.total_students }}</td></tr>
+    {% empty %}<tr><td colspan="4">No assignments uploaded yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

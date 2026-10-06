@@ -1,0 +1,46 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Live Classes · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Upcoming Classes</h3></div>
+  {% if upcoming %}
+    {% for ev in upcoming %}
+    <div class="event-card">
+      <div class="event-date">
+        <span class="month">{{ ev.date|date:"M"|upper }}</span>
+        <span class="day">{{ ev.date|date:"d" }}</span>
+      </div>
+      <div class="event-info">
+        <h4>{{ ev.title }}</h4>
+        <p>{% if ev.start_time %}{{ ev.start_time|time:"h:i A" }}{% if ev.end_time %} - {{ ev.end_time|time:"h:i A" }}{% endif %}{% endif %}
+          {% if ev.instructor %}&middot; By {{ ev.instructor }}{% endif %}</p>
+      </div>
+      <div class="event-actions"><button class="btn-join">Join Class</button></div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state"><i class="fa-solid fa-video"></i>No upcoming live classes scheduled.</div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Past Classes</h3></div>
+  {% if past %}
+    {% for ev in past %}
+    <div class="event-card">
+      <div class="event-date">
+        <span class="month">{{ ev.date|date:"M"|upper }}</span>
+        <span class="day">{{ ev.date|date:"d" }}</span>
+      </div>
+      <div class="event-info">
+        <h4>{{ ev.title }}</h4>
+        <p>{% if ev.instructor %}By {{ ev.instructor }}{% endif %}</p>
+      </div>
+      <div class="event-actions"><span class="tag tag-good">Completed</span></div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state"><i class="fa-solid fa-clock-rotate-left"></i>No past classes yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

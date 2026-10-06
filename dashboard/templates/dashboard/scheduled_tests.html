@@ -1,0 +1,37 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Scheduled Tests · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Tests</h3></div>
+  <table class="data-table"><thead><tr><th>Test</th><th>Trainer</th><th>Opens</th><th>Closes</th><th>Duration</th><th>Status / result</th><th></th></tr></thead><tbody>
+    {% for row in test_rows %}
+      {% with test=row.test attempt=row.attempt %}
+      <tr>
+        <td>
+          {{ test.title }}
+          {% if test.external_url and now >= test.opens_at and now < test.closes_at %}
+            <div><a href="{{ test.external_url }}" target="_blank" rel="noopener">Open Testmoz assessment</a></div>
+          {% endif %}
+        </td><td>{{ test.trainer.user.get_full_name|default:test.trainer.user.username }}</td><td>{{ test.opens_at|date:"d M Y H:i" }}</td><td>{{ test.closes_at|date:"d M Y H:i" }}</td><td>{{ test.duration_minutes }} min</td>
+        <td>{% if now >= test.closes_at %}{% if test.external_url %}Closed{% elif attempt and attempt.status == "submitted" %}{% if attempt.pending_manual_review %}Submitted · written answers under review{% else %}{{ attempt.score }} / {{ attempt.possible_points }}{% endif %}{% else %}Closed{% endif %}{% elif now < test.opens_at %}Scheduled{% elif test.external_url %}External assessment open{% elif attempt and attempt.status == "submitted" %}Submitted · results after close{% else %}Available{% endif %}</td>
+        <td>
+          {% if test.external_url and now >= test.opens_at and now < test.closes_at %}
+            <a class="btn btn-primary" href="{{ test.external_url }}" target="_blank" rel="noopener">Open</a>
+          {% elif test.external_url %}
+            <span class="muted">{% if now < test.opens_at %}Available at start time{% else %}Closed{% endif %}</span>
+          {% elif now >= test.opens_at and now < test.closes_at and not attempt %}
+            <a class="btn btn-primary" href="{% url 'take_online_test' test.pk %}">Start test</a>
+          {% elif attempt and attempt.status == "in_progress" and now < test.closes_at %}
+            <a class="btn btn-primary" href="{% url 'take_online_test' test.pk %}">Continue test</a>
+          {% elif now >= test.closes_at and attempt and attempt.status == "submitted" %}
+            <a class="btn btn-secondary" href="{% url 'take_online_test' test.pk %}">View result</a>
+          {% else %}
+            <span class="muted">Not available</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endwith %}
+    {% empty %}<tr><td colspan="7">No tests scheduled.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endblock %}

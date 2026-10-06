@@ -1,0 +1,13 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Training Programs · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Programs Running</h3></div>
+  {% for p in programs %}
+  <div class="skill-row">
+    <div class="skill-row-head"><span>{{ p.name }}</span><b>{{ p.students_count }} Students</b></div>
+    <div class="skill-track"><div class="skill-fill" style="width:{% widthratio p.students_count programs.0.students_count 100 %}%; background:var(--blue);"></div></div>
+  </div>
+  {% empty %}<div class="empty-state"><i class="fa-solid fa-chalkboard-user"></i>No programs running.</div>{% endfor %}
+</section>
+{% endblock %}

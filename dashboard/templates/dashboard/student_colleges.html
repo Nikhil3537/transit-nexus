@@ -1,0 +1,29 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}My College · Transit Nexus{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="panel-head">
+      <h3>My College</h3>
+      <span class="muted">Assigned college for this account</span>
+    </div>
+
+    {% if colleges %}
+      <div class="sw-grid">
+        {% for college in colleges %}
+          <div>
+            <p class="sw-title">College</p>
+            <p class="sw-item good"><i class="fa-solid fa-building-columns"></i> {{ college.college_name }}</p>
+            {% if college.location %}
+              <p class="muted">{{ college.location }}</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <p>No college has been assigned to this student yet.</p>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

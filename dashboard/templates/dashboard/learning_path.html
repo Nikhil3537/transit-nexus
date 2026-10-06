@@ -1,0 +1,20 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Learning Path · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Your Roadmap</h3></div>
+  <div class="path-timeline">
+    {% for e in enrollments %}
+    <div class="path-step {% if e.is_completed %}done{% endif %}">
+      <h4>{{ e.course.name }}</h4>
+      <p>{{ e.modules_completed }} / {{ e.modules_total }} modules &middot; {{ e.progress_percent }}% complete
+        {% if e.is_completed %}&middot; <span class="tag tag-good">Completed</span>{% else %}&middot; <span class="tag tag-good" style="background:var(--blue-light); color:var(--blue);">In Progress</span>{% endif %}
+      </p>
+      <div class="progress-track" style="max-width:320px;"><div class="progress-fill" style="width:{{ e.progress_percent }}%"></div></div>
+    </div>
+    {% empty %}
+    <div class="empty-state"><i class="fa-solid fa-route"></i>No learning path available yet.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

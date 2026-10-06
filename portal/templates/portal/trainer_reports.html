@@ -1,0 +1,19 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Reports · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Student Performance Trend</h3></div>
+  <canvas id="trainerTrend2" height="120"></canvas>
+</section>
+{% endblock %}
+{% block page_scripts %}
+<script>
+  const trend = {{ trend_json|safe }};
+  new Chart(document.getElementById('trainerTrend2'), {
+    type: 'line',
+    data: { labels: trend.labels, datasets: [{ label: 'Avg %', data: trend.values,
+      borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#14b8a6' }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+  });
+</script>
+{% endblock %}

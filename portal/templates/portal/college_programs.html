@@ -1,0 +1,42 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Training Programs · Transit Nexus{% endblock %}
+{% block content %}
+{% include "portal/_college_csv_upload.html" %}
+<section class="panel">
+  <div class="panel-head"><h3>{% if edit_program %}Update Program{% else %}Add Program{% endif %}</h3></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    {% if edit_program %}<input type="hidden" name="program_id" value="{{ edit_program.pk }}">{% endif %}
+    <label>Program name
+      <input type="text" name="name" maxlength="150" value="{{ form_values.name }}" required>
+    </label>
+    <label>Number of students
+      <input type="number" name="students_count" min="0" value="{{ form_values.students_count }}" required>
+    </label>
+    <label>Status
+      <select name="status" required>
+        {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if form_values.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div>
+      <button class="btn btn-primary" type="submit">{% if edit_program %}Save Changes{% else %}Create Program{% endif %}</button>
+      {% if edit_program %}<a class="btn btn-secondary" href="{% url 'college_programs' %}">Cancel</a>{% endif %}
+    </div>
+  </form>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>Programs</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Program</th><th>Students</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>
+    {% for p in programs %}
+      <tr><td>{{ p.name }}</td><td>{{ p.students_count }}</td>
+          <td>{% if p.status == "active" %}<span class="tag tag-good">Active</span>{% else %}<span class="tag tag-pending">Completed</span>{% endif %}</td>
+          <td><a class="btn btn-secondary" href="?edit={{ p.pk }}">Edit</a></td></tr>
+    {% empty %}<tr><td colspan="4">No programs yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

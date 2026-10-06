@@ -1,0 +1,30 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Assessments · Transit Nexus{% endblock %}
+{% block content %}
+{% include "portal/_college_csv_upload.html" %}
+<section class="panel">
+  <div class="panel-head"><h3>{% if edit_record %}Update Assessment{% else %}Add Assessment{% endif %}</h3></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    {% if edit_record %}<input type="hidden" name="record_id" value="{{ edit_record.pk }}">{% endif %}
+    {% for field in record_form %}<label>{{ field.label }}{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>{% endfor %}
+    <div><button class="btn btn-primary" type="submit">{% if edit_record %}Save Changes{% else %}Add Assessment{% endif %}</button>{% if edit_record %} <a class="btn btn-secondary" href="{% url 'college_assessments' %}">Cancel</a>{% endif %}</div>
+  </form>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>All Assessments</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Assessment</th><th>Department</th><th>Date</th><th>Avg Score</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for a in assessments %}
+      <tr>
+        <td>{{ a.name }}</td><td>{{ a.department }}</td><td>{{ a.date|date:"d M Y" }}</td>
+        <td>{% if a.avg_score %}{{ a.avg_score }}%{% else %}&mdash;{% endif %}</td>
+        <td>{% if a.status == "completed" %}<span class="tag tag-good">Completed</span>{% else %}<span class="tag tag-pending">Scheduled</span>{% endif %}</td>
+        <td class="row-actions"><a class="btn btn-secondary" href="?edit={{ a.pk }}">Edit</a><form method="post" class="inline-form" onsubmit="return confirm('Delete this assessment?');">{% csrf_token %}<input type="hidden" name="record_id" value="{{ a.pk }}"><input type="hidden" name="action" value="delete"><button class="btn btn-danger" type="submit">Delete</button></form></td>
+      </tr>
+    {% empty %}<tr><td colspan="6">No assessments yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

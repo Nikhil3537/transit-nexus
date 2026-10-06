@@ -1,0 +1,68 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}My Attendance · Transit Nexus{% endblock %}
+
+{% block content %}
+<section class="stat-grid" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="fa-solid fa-calendar-check"></i></div>
+    <div class="stat-body"><h3>Overall Attendance</h3><p class="stat-value">{{ overall_attendance }}%</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fa-solid fa-circle-check"></i></div>
+    <div class="stat-body"><h3>Present</h3><p class="stat-value">{{ total_present }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="fa-solid fa-circle-xmark"></i></div>
+    <div class="stat-body"><h3>Absent</h3><p class="stat-value">{{ total_absent }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="fa-solid fa-clock"></i></div>
+    <div class="stat-body"><h3>Late</h3><p class="stat-value">{{ total_late }}</p></div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Attendance Trend</h3></div>
+    <canvas id="attendanceTrend" height="110"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Monthly Breakdown</h3></div>
+    <table class="data-table">
+      <thead><tr><th>Month</th><th>Total</th><th>Present</th><th>Absent</th><th>Late</th><th>%</th></tr></thead>
+      <tbody>
+      {% for r in records %}
+        <tr>
+          <td>{{ r.month_label }}</td>
+          <td>{{ r.total_classes }}</td>
+          <td>{{ r.present }}</td>
+          <td>{{ r.absent }}</td>
+          <td>{{ r.late }}</td>
+          <td><span class="tag tag-good">{{ r.percentage }}%</span></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">No attendance records yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  const trendData = {{ trend_json|safe }};
+  new Chart(document.getElementById('attendanceTrend'), {
+    type: 'line',
+    data: {
+      labels: trendData.labels,
+      datasets: [{
+        label: 'Attendance %', data: trendData.values,
+        borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)',
+        tension: 0.4, fill: true, pointBackgroundColor: '#22c55e',
+      }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+  });
+</script>
+{% endblock %}

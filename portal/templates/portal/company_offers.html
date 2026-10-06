@@ -1,0 +1,20 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Offers · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Offers Extended</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Candidate</th><th>Position</th><th>Package (LPA)</th><th>Offer Date</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for o in offers %}
+      <tr>
+        <td>{{ o.candidate_name }}</td><td>{{ o.position }}</td><td>{{ o.package_lpa }}</td><td>{{ o.offer_date|date:"d M Y" }}</td>
+        <td>{% if o.status == "accepted" %}<span class="tag tag-good">Accepted</span>
+            {% elif o.status == "declined" %}<span class="tag tag-needs-improvement">Declined</span>
+            {% else %}<span class="tag tag-average">Offered</span>{% endif %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="5">No offers extended yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

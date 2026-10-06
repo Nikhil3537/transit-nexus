@@ -1,0 +1,21 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Projects · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>All Projects</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Project</th><th>College</th><th>Budget</th><th>Spent</th><th>Remaining</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for p in projects %}
+      <tr>
+        <td>{{ p.name }}</td><td>{{ p.college_name }}</td><td>&#8377;{{ p.budget }}</td>
+        <td>&#8377;{{ p.spent }}</td><td>&#8377;{{ p.remaining }}</td>
+        <td>{% if p.status == "In Progress" %}<span class="tag tag-average">In Progress</span>
+            {% elif p.status == "Completed" %}<span class="tag tag-good">Completed</span>
+            {% else %}<span class="tag tag-pending">On Hold</span>{% endif %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="6">No projects yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

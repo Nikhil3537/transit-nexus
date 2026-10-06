@@ -1,0 +1,58 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Results & Reports · Transit Nexus{% endblock %}
+{% block content %}
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Score Trend</h3></div>
+    <canvas id="scoreTrend" height="120"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Overall Average</h3></div>
+    <div class="grade-row">
+      <div class="grade-arc" style="background: conic-gradient(var(--blue) 0 {{ avg_score }}%, var(--border) 0);">
+        <span class="grade-letter" style="color:var(--blue);">{{ avg_score }}%</span>
+      </div>
+      <div class="grade-info">
+        <p class="grade-title">Average Score</p>
+        <p class="grade-sub">Across all assessments</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Subject Wise Performance</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Subject</th><th>Avg Score</th><th>Highest</th><th>Modules</th><th>Performance</th></tr></thead>
+    <tbody>
+    {% for e in enrollments %}
+      <tr>
+        <td>{{ e.course.name }}</td>
+        <td>{{ e.avg_score }}%</td>
+        <td>{{ e.highest_score }}%</td>
+        <td>{{ e.modules_completed }} / {{ e.modules_total }}</td>
+        <td><span class="tag tag-{{ e.performance_label|slugify }}">{{ e.performance_label }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  const trendData = {{ trend_json|safe }};
+  new Chart(document.getElementById('scoreTrend'), {
+    type: 'line',
+    data: {
+      labels: trendData.labels,
+      datasets: [{
+        label: 'Score %', data: trendData.values,
+        borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)',
+        tension: 0.4, fill: true, pointBackgroundColor: '#8b5cf6',
+      }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+  });
+</script>
+{% endblock %}

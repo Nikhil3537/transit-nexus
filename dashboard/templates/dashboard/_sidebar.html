@@ -1,0 +1,35 @@
+{% load static %}
+<aside class="sidebar">
+  <p class="nav-section-label">MAIN MENU</p>
+  <nav class="nav-list">
+    <a href="{% url 'dashboard' %}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"><i class="fa-solid fa-house"></i> Dashboard</a>
+    <a href="{% url 'student_colleges' %}" class="nav-item {% if active_page == 'student_colleges' %}active{% endif %}"><i class="fa-solid fa-school"></i> My College</a>
+    <a href="{% url 'profile' %}" class="nav-item {% if active_page == 'profile' %}active{% endif %}"><i class="fa-solid fa-user"></i> My Profile</a>
+    <a href="{% url 'courses' %}" class="nav-item {% if active_page == 'courses' %}active{% endif %}"><i class="fa-solid fa-book-open"></i> My Courses</a>
+    <a href="{% url 'live_classes' %}" class="nav-item {% if active_page == 'live_classes' %}active{% endif %}"><i class="fa-solid fa-video"></i> Live Classes</a>
+    <a href="{% url 'attendance' %}" class="nav-item {% if active_page == 'attendance' %}active{% endif %}"><i class="fa-solid fa-calendar-check"></i> My Attendance</a>
+    <a href="{% url 'assessments' %}" class="nav-item {% if active_page == 'assessments' %}active{% endif %}"><i class="fa-solid fa-clipboard-list"></i> Assessments</a>
+    <a href="{% url 'scheduled_tests' %}" class="nav-item {% if active_page == 'scheduled_tests' %}active{% endif %}"><i class="fa-solid fa-file-circle-check"></i> Scheduled Tests</a>
+    <a href="{% url 'results_reports' %}" class="nav-item {% if active_page == 'results_reports' %}active{% endif %}"><i class="fa-solid fa-chart-line"></i> Results &amp; Reports</a>
+    <a href="{% url 'assignments' %}" class="nav-item {% if active_page == 'assignments' %}active{% endif %}"><i class="fa-solid fa-list-check"></i> Assignments</a>
+    <a href="{% url 'certificates' %}" class="nav-item {% if active_page == 'certificates' %}active{% endif %}"><i class="fa-solid fa-award"></i> Certificates</a>
+    <a href="{% url 'learning_path' %}" class="nav-item {% if active_page == 'learning_path' %}active{% endif %}"><i class="fa-solid fa-route"></i> Learning Path</a>
+    <a href="{% url 'skill_progress' %}" class="nav-item {% if active_page == 'skill_progress' %}active{% endif %}"><i class="fa-solid fa-arrow-trend-up"></i> Skill Progress</a>
+    <a href="{% url 'messages_list' %}" class="nav-item {% if active_page == 'messages' %}active{% endif %}"><i class="fa-solid fa-comment-dots"></i> Messages
+      {% if unread_message_count %}<span class="nav-badge">{{ unread_message_count }}</span>{% endif %}
+    </a>
+    <a href="{% url 'calendar_view' %}" class="nav-item {% if active_page == 'calendar' %}active{% endif %}"><i class="fa-solid fa-calendar-days"></i> Calendar</a>
+    <a href="{% url 'payments' %}" class="nav-item {% if active_page == 'payments' %}active{% endif %}"><i class="fa-solid fa-wallet"></i> My Payments</a>
+  </nav>
+
+  <p class="nav-section-label">SUPPORT</p>
+  <nav class="nav-list">
+    <a href="#" class="nav-item"><i class="fa-solid fa-circle-question"></i> Help &amp; Support</a>
+    <a href="#" class="nav-item"><i class="fa-solid fa-comment"></i> Feedback</a>
+  </nav>
+
+  <form method="post" action="{% url 'logout' %}" class="logout-form">
+    {% csrf_token %}
+    <button type="submit" class="nav-item logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+  </form>
+</aside>

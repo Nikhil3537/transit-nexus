@@ -1,0 +1,44 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}My Profile · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  {% if messages %}
+    {% for m in messages %}<div class="alert-success">{{ m }}</div>{% endfor %}
+  {% endif %}
+  <div class="profile-header">
+    <img class="profile-avatar-lg" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=4361ee&color=fff&size=128" alt="avatar">
+    <div>
+      <h2>{{ profile.user.first_name }} {{ profile.user.last_name }}</h2>
+      <p>{{ profile.user.email|default:"No email on file" }}</p>
+      <div class="profile-stats">
+        <div><b>{{ courses_enrolled }}</b><span>Courses Enrolled</span></div>
+        <div><b>{{ certificates_count }}</b><span>Certificates</span></div>
+        <div><b>{{ profile.total_learning_hours }}</b><span>Learning Hours</span></div>
+      </div>
+    </div>
+  </div>
+
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    <div>
+      <label for="first_name">First Name</label>
+      <input type="text" id="first_name" name="first_name" value="{{ profile.user.first_name }}">
+    </div>
+    <div>
+      <label for="last_name">Last Name</label>
+      <input type="text" id="last_name" name="last_name" value="{{ profile.user.last_name }}">
+    </div>
+    <div>
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" value="{{ profile.user.email }}">
+    </div>
+    <div>
+      <label for="username">Username</label>
+      <input type="text" id="username" value="{{ profile.user.username }}" disabled>
+    </div>
+    <div style="grid-column: 1 / -1;">
+      <button type="submit" class="btn-primary" style="width:auto; padding:11px 28px;">Save Changes</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

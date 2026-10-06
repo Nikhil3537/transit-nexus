@@ -1,0 +1,31 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Students Management · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>All Students</h3><span class="muted">{{ students|length }} records, grouped by college, department, and semester</span></div>
+</section>
+
+{% for group in student_groups %}
+<section class="panel">
+  <div class="panel-head">
+    <h3>{{ group.college_name }} · {{ group.department }} · {{ group.semester }}</h3>
+    <span class="muted">Academic year {{ group.academic_year }} · {{ group.students|length }} student{{ group.students|length|pluralize }}</span>
+  </div>
+  <table class="data-table">
+    <thead><tr><th>Student</th><th>Performance</th><th>Attendance</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for s in group.students %}
+      <tr>
+        <td>{{ s.name }}{% if s.has_account %} <span class="tag tag-good">Account</span>{% endif %}</td>
+        <td>{% if s.performance_pct is not None %}{{ s.performance_pct }}%{% else %}—{% endif %}</td>
+        <td>{% if s.attendance_pct is not None %}{{ s.attendance_pct }}%{% else %}—{% endif %}</td>
+        <td>{% if s.status == "Active" %}<span class="tag tag-good">Active</span>{% else %}<span class="tag tag-warn">{{ s.status }}</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% empty %}
+<section class="panel"><div class="empty-state">No student records yet.</div></section>
+{% endfor %}
+{% endblock %}

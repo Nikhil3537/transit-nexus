@@ -1,0 +1,53 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Trainers · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <h3>Find Trainers</h3>
+    <form method="get" class="inline-search">
+      <input type="search" name="q" value="{{ query }}" placeholder="Search trainer name, username, email">
+      <input type="date" name="date" value="{{ selected_date }}">
+      <button class="btn btn-primary" type="submit">Search</button>
+      {% if selected_date %}<a class="btn btn-secondary" href="{% url 'trainers' %}">Clear</a>{% endif %}
+    </form>
+  </div>
+  <p class="muted">
+    {% if selected_date %}
+      Showing trainers for {{ selected_date }}
+    {% else %}
+      {{ trainer_count }} trainer{{ trainer_count|pluralize }} available
+    {% endif %}
+  </p>
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Trainer</th>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Status</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for trainer in trainers %}
+      <tr>
+        <td>{{ trainer.user.get_full_name|default:trainer.user.username }}</td>
+        <td>{{ trainer.user.username }}</td>
+        <td>{{ trainer.user.email|default:"—" }}</td>
+        <td>
+          {% if trainer.is_available_on_date %}
+            <span class="tag tag-active">{{ trainer.availability_status }}</span>
+          {% else %}
+            <span class="tag tag-warning">{{ trainer.availability_status }}</span>
+          {% endif %}
+        </td>
+        <td>{{ trainer.availability_note }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No trainers found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

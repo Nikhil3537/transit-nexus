@@ -1,0 +1,32 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Assessments · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Scheduled Tests</h3><a href="{% url 'scheduled_tests' %}">Open test center</a></div>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>All Assessments</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Assessment</th><th>Subject</th><th>Score</th><th>Date</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for a in assessments %}
+      <tr>
+        <td>{{ a.name }}</td>
+        <td>{{ a.subject }}</td>
+        <td>{% if a.score %}{{ a.score }}%{% else %}&mdash;{% endif %}</td>
+        <td>{{ a.date|date:"d M Y" }}</td>
+        <td>
+          {% if a.status == "completed" %}
+            <span class="tag tag-{{ a.performance_label|slugify }}">{{ a.performance_label }}</span>
+          {% else %}
+            <span class="tag tag-pending">Pending</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5">No assessments yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

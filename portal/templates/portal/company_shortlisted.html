@@ -1,0 +1,15 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Shortlisted Candidates · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Shortlisted Candidates</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Student</th><th>Dept</th><th>Overall Score</th></tr></thead>
+    <tbody>
+    {% for c in candidates %}
+      <tr><td>{{ c.name }}</td><td>{{ c.department }}</td><td><span class="tag tag-good">{{ c.overall_score }}%</span></td></tr>
+    {% empty %}<tr><td colspan="3">No candidates shortlisted yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

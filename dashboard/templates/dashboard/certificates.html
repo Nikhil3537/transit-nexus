@@ -1,0 +1,23 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Certificates · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>My Certificates</h3></div>
+  {% if certificates %}
+  <div class="cert-grid">
+    {% for c in certificates %}
+    <div class="cert-card">
+      <div class="cert-icon"><i class="fa-solid fa-award"></i></div>
+      <h4>{{ c.title }}</h4>
+      <p>Issued by {{ c.issuer }}</p>
+      <p>{{ c.issued_date|date:"d M Y" }}</p>
+      {% if c.credential_id %}<p>ID: {{ c.credential_id }}</p>{% endif %}
+      <a href="{% url 'download_certificate' c.pk %}" class="cert-download"><i class="fa-solid fa-download"></i> Download</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state"><i class="fa-solid fa-award"></i>No certificates earned yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

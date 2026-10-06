@@ -1,0 +1,107 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Trainer Dashboard · Transit Nexus{% endblock %}
+{% block content %}
+
+<section class="stat-grid" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="fa-solid fa-people-group"></i></div>
+    <div class="stat-body"><h3>My Batches</h3><p class="stat-value">{{ total_batches }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fa-solid fa-user-graduate"></i></div>
+    <div class="stat-body"><h3>Total Students</h3><p class="stat-value">{{ total_students }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="fa-solid fa-clipboard-list"></i></div>
+    <div class="stat-body"><h3>Assessments Created</h3><p class="stat-value">{{ profile.assessments_created }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="fa-solid fa-list-check"></i></div>
+    <div class="stat-body"><h3>Assignments Uploaded</h3><p class="stat-value">{{ profile.assignments_uploaded }}</p></div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Batch Overview</h3></div>
+    <table class="data-table">
+      <thead><tr><th>Batch</th><th>Students</th><th>Attendance</th></tr></thead>
+      <tbody>
+      {% for b in batches %}
+        <tr>
+          <td>{{ b.name }}</td>
+          <td>{{ b.total_students }}</td>
+          <td><span class="tag tag-good">{{ b.attendance_pct }}%</span></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3">No batches assigned yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Attendance Overview</h3></div>
+    <div class="donut-row">
+      <div class="donut" style="--p1:{{ overall_attendance }};">
+        <span class="donut-value">{{ overall_attendance }}%</span>
+        <span class="donut-label">Present</span>
+      </div>
+      <ul class="legend">
+        <li><span class="dot green"></span> Present <b>{{ total_present }}</b></li>
+        <li><span class="dot red"></span> Absent <b>{{ total_absent }}</b></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Recent Assessments</h3></div>
+    <table class="data-table">
+      <thead><tr><th>Assessment</th><th>Avg Score</th><th>Date</th></tr></thead>
+      <tbody>
+      {% for a in assessments %}
+        <tr>
+          <td>{{ a.name }}</td>
+          <td>{{ a.avg_score }}%</td>
+          <td>{{ a.date|date:"d M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3">No assessments created yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Pending Tasks</h3></div>
+    {% for t in pending_tasks %}
+      <p class="sw-item bad"><i class="fa-solid fa-circle-exclamation"></i> {{ t.description }} <b style="margin-left:auto;">{{ t.quantity }}</b></p>
+    {% empty %}
+      <div class="empty-state"><i class="fa-solid fa-circle-check"></i>All caught up — no pending tasks.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Student Performance Trend</h3></div>
+  <canvas id="trainerTrend" height="120"></canvas>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  const trend = {{ trend_json|safe }};
+  new Chart(document.getElementById('trainerTrend'), {
+    type: 'line',
+    data: {
+      labels: trend.labels,
+      datasets: [{
+        label: 'Avg Performance %', data: trend.values,
+        borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,0.1)',
+        tension: 0.4, fill: true, pointBackgroundColor: '#14b8a6',
+      }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+  });
+</script>
+{% endblock %}

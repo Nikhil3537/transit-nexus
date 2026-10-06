@@ -1,0 +1,312 @@
+{% extends "dashboard/_page_base.html" %}
+{% load static %}
+{% block title %}Student Dashboard · Transit Nexus{% endblock %}
+
+{% block content %}
+    {% if colleges %}
+    <section class="panel" style="margin-bottom: 1.5rem;">
+      <div class="panel-head">
+        <h3>My College</h3>
+        <a href="{% url 'student_colleges' %}">View Details</a>
+      </div>
+      <div class="sw-grid">
+        {% for college in colleges %}
+          <div>
+            <p class="sw-title">Assigned College</p>
+            <p class="sw-item good"><i class="fa-solid fa-building-columns"></i> {{ college.college_name }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- Stat cards -->
+    <section class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-icon blue"><i class="fa-solid fa-calendar-check"></i></div>
+        <div class="stat-body">
+          <h3>Overall Attendance</h3>
+          <p class="stat-value">{{ overall_attendance }}%</p>
+          <span class="stat-sub">Total Classes: {{ total_classes }} | Attended: {{ total_present }}</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><i class="fa-solid fa-clipboard-check"></i></div>
+        <div class="stat-body">
+          <h3>Assessments Taken</h3>
+          <p class="stat-value">{{ assessments_taken }}</p>
+          <span class="stat-sub">Completed: {{ assessments_completed }} | Pending: {{ assessments_pending }}</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple"><i class="fa-solid fa-bullseye"></i></div>
+        <div class="stat-body">
+          <h3>Average Score</h3>
+          <p class="stat-value">{{ average_score }}%</p>
+          <span class="stat-sub">All Assessments</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon orange"><i class="fa-solid fa-chart-simple"></i></div>
+        <div class="stat-body">
+          <h3>Courses Enrolled</h3>
+          <p class="stat-value">{{ courses_enrolled }}</p>
+          <span class="stat-sub">Active Courses</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon teal"><i class="fa-regular fa-clock"></i></div>
+        <div class="stat-body">
+          <h3>Total Learning Hours</h3>
+          <p class="stat-value">{{ total_learning_hours }}</p>
+          <span class="stat-sub">This Semester</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Overview row -->
+    <section class="grid-3">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Attendance Overview</h3>
+          <a href="{% url 'attendance' %}">View Details</a>
+        </div>
+        <div class="donut-row">
+          <div class="donut" style="--p1:{{ overall_attendance }};">
+            <span class="donut-value">{{ overall_attendance }}%</span>
+            <span class="donut-label">Present</span>
+          </div>
+          <ul class="legend">
+            <li><span class="dot green"></span> Present <b>{{ total_present }}</b></li>
+            <li><span class="dot red"></span> Absent <b>{{ total_absent }}</b></li>
+            <li><span class="dot yellow"></span> Late <b>{{ total_late }}</b></li>
+            <li><span class="dot grey"></span> Total Classes <b>{{ total_classes }}</b></li>
+          </ul>
+        </div>
+        <canvas id="attendanceTrend" height="110"></canvas>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Assessment Summary</h3>
+          <a href="{% url 'assessments' %}">View All</a>
+        </div>
+        <div class="donut-row">
+          <div class="donut donut-purple" style="--p1:{{ assessments_taken }};">
+            <span class="donut-value">{{ assessments_taken }}</span>
+            <span class="donut-label">Assessments</span>
+          </div>
+          <ul class="legend">
+            {% for b in score_distribution %}
+            <li><span class="dot legend-{{ forloop.counter }}"></span> {{ b.label }} <b>{{ b.count }} ({{ b.pct }}%)</b></li>
+            {% endfor %}
+          </ul>
+        </div>
+        <canvas id="scoreTrend" height="110"></canvas>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Performance Overview</h3>
+          <a href="{% url 'results_reports' %}">View Report</a>
+        </div>
+        <div class="grade-row">
+          <div class="grade-arc">
+            <span class="grade-letter">{{ overall_grade }}</span>
+          </div>
+          <div class="grade-info">
+            <p class="grade-title">Overall Grade</p>
+            <p class="grade-sub">{{ grade_label }}</p>
+          </div>
+        </div>
+        <p class="score-dist-title">Score Distribution</p>
+        <div class="score-bars">
+          {% for b in score_distribution %}
+          <div class="score-bar-row">
+            <span class="score-bar-label">{{ b.label }}</span>
+            <div class="score-bar-track">
+              <div class="score-bar-fill legend-{{ forloop.counter }}" style="width:{{ b.pct }}%"></div>
+            </div>
+            <span class="score-bar-pct">{{ b.count }} ({{ b.pct }}%)</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <!-- Detail row -->
+    <section class="grid-3">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Subject Wise Performance</h3>
+          <a href="{% url 'results_reports' %}">View Details</a>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Subject</th><th>Avg Score</th><th>Highest</th><th>Performance</th></tr>
+          </thead>
+          <tbody>
+          {% for e in enrollments %}
+            <tr>
+              <td>{{ e.course.name }}</td>
+              <td>{{ e.avg_score }}%</td>
+              <td>{{ e.highest_score }}%</td>
+              <td><span class="tag tag-{{ e.performance_label|slugify }}">{{ e.performance_label }}</span></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Recent Assessments</h3>
+          <a href="{% url 'assessments' %}">View All</a>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Assessment</th><th>Score</th><th>Date</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+          {% for a in recent_assessments %}
+            <tr>
+              <td>{{ a.name }}</td>
+              <td>{% if a.score %}{{ a.score }}%{% else %}&mdash;{% endif %}</td>
+              <td>{{ a.date|date:"d M Y" }}</td>
+              <td>
+                {% if a.status == "completed" %}
+                  <span class="tag tag-{{ a.performance_label|slugify }}">{{ a.performance_label }}</span>
+                {% else %}
+                  <span class="tag tag-pending">Pending</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Strengths &amp; Weaknesses</h3>
+          <a href="{% url 'skill_progress' %}">View Details</a>
+        </div>
+        <div class="sw-grid">
+          <div>
+            <p class="sw-title">Top Strengths</p>
+            {% for s in strengths %}
+              <p class="sw-item good"><i class="fa-solid fa-circle-check"></i> {{ s.title }}</p>
+            {% endfor %}
+          </div>
+          <div>
+            <p class="sw-title">Areas to Improve</p>
+            {% for a in improvements %}
+              <p class="sw-item bad"><i class="fa-solid fa-circle-exclamation"></i> {{ a.title }}</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Learning progress -->
+    <section class="panel">
+      <div class="panel-head">
+        <h3>Learning Progress</h3>
+        <a href="{% url 'learning_path' %}">View All</a>
+      </div>
+      <div class="progress-grid">
+        {% for e in enrollments %}
+        <div class="progress-card">
+          <p class="progress-name">{{ e.course.name }}</p>
+          <div class="ring" style="--p:{{ e.progress_percent }};">
+            <span>{{ e.progress_percent }}%</span>
+          </div>
+          <p class="progress-status {% if e.is_completed %}done{% else %}active{% endif %}">
+            {% if e.is_completed %}Completed{% else %}In Progress{% endif %}
+          </p>
+          <p class="progress-modules">{{ e.modules_completed }} / {{ e.modules_total }} Modules</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <!-- Activity + quick links -->
+    <section class="grid-2">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Recent Activity</h3>
+          <a href="#">View All</a>
+        </div>
+        <ul class="timeline">
+          {% for act in activities %}
+          <li>
+            <span class="timeline-dot {{ act.activity_type }}"></span>
+            <div>
+              <p>{{ act.description }}</p>
+              <span class="timeline-date">{{ act.timestamp|date:"d M Y, h:i A" }}</span>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Quick Links</h3></div>
+        <div class="quick-links">
+          <a href="{% url 'live_classes' %}" class="quick-link"><i class="fa-solid fa-video"></i> Join Live Class</a>
+          <a href="{% url 'courses' %}" class="quick-link"><i class="fa-solid fa-book"></i> Study Materials</a>
+          <a href="{% url 'assessments' %}" class="quick-link"><i class="fa-solid fa-pen"></i> Take Assessment</a>
+          <a href="{% url 'calendar_view' %}" class="quick-link"><i class="fa-solid fa-calendar"></i> View Timetable</a>
+          <a href="{% url 'messages_list' %}" class="quick-link"><i class="fa-solid fa-circle-question"></i> Ask Doubt</a>
+          <a href="{% url 'results_reports' %}" class="quick-link"><i class="fa-solid fa-chart-line"></i> Exam Results</a>
+        </div>
+      </div>
+    </section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  const attendanceData = {{ attendance_trend_json|safe }};
+  const scoreData = {{ score_trend_json|safe }};
+
+  new Chart(document.getElementById('attendanceTrend'), {
+    type: 'line',
+    data: {
+      labels: attendanceData.labels,
+      datasets: [{
+        label: 'Attendance %',
+        data: attendanceData.values,
+        borderColor: '#22c55e',
+        backgroundColor: 'rgba(34,197,94,0.1)',
+        tension: 0.4,
+        fill: true,
+        pointBackgroundColor: '#22c55e',
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { min: 0, max: 100 } }
+    }
+  });
+
+  new Chart(document.getElementById('scoreTrend'), {
+    type: 'line',
+    data: {
+      labels: scoreData.labels,
+      datasets: [{
+        label: 'Average Score',
+        data: scoreData.values,
+        borderColor: '#8b5cf6',
+        backgroundColor: 'rgba(139,92,246,0.1)',
+        tension: 0.4,
+        fill: true,
+        pointBackgroundColor: '#8b5cf6',
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { min: 0, max: 100 } }
+    }
+  });
+</script>
+{% endblock %}

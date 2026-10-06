@@ -1,0 +1,24 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}My Courses · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Enrolled Courses</h3></div>
+  {% if enrollments %}
+  <div class="course-grid">
+    {% for e in enrollments %}
+    <div class="course-card">
+      <div class="course-card-icon"><i class="{{ e.course.icon_class }}"></i></div>
+      <h4>{{ e.course.name }}</h4>
+      <p class="course-meta">{{ e.modules_completed }} / {{ e.modules_total }} Modules &middot;
+        <span class="tag tag-{{ e.performance_label|slugify }}">{{ e.performance_label }}</span>
+      </p>
+      <div class="progress-track"><div class="progress-fill" style="width:{{ e.progress_percent }}%"></div></div>
+      <span class="progress-pct">{{ e.progress_percent }}% complete</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state"><i class="fa-solid fa-book-open"></i>You are not enrolled in any courses yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

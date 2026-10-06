@@ -1,0 +1,14 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Company Profile · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  {% if messages %}{% for m in messages %}<div class="alert-success">{{ m }}</div>{% endfor %}{% endif %}
+  <div class="panel-head"><h3>Company Details</h3></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    <div><label>Company Name</label><input type="text" name="company_name" value="{{ profile.company_name }}"></div>
+    <div><label>HR Contact</label><input type="text" value="{{ profile.user.first_name }} {{ profile.user.last_name }}" disabled></div>
+    <div style="grid-column: 1 / -1;"><button type="submit" class="btn-primary" style="width:auto; padding:11px 28px;">Save Changes</button></div>
+  </form>
+</section>
+{% endblock %}

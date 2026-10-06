@@ -1,0 +1,74 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Company Dashboard · Transit Nexus{% endblock %}
+{% block content %}
+
+<section class="stat-grid" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="fa-solid fa-car-side"></i></div>
+    <div class="stat-body"><h3>Total Drives</h3><p class="stat-value">{{ total_drives }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fa-solid fa-star"></i></div>
+    <div class="stat-body"><h3>Shortlisted</h3><p class="stat-value">{{ shortlisted }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="fa-solid fa-people-arrows"></i></div>
+    <div class="stat-body"><h3>Interviews</h3><p class="stat-value">{{ total_interviews }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="fa-solid fa-user-check"></i></div>
+    <div class="stat-body"><h3>Hired</h3><p class="stat-value">{{ hired }}</p></div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Top Matched Students</h3><a href="#">View All</a></div>
+  <table class="data-table">
+    <thead><tr><th>#</th><th>Student</th><th>Dept</th><th>Aptitude</th><th>Technical</th><th>Comm</th><th>Overall</th></tr></thead>
+    <tbody>
+    {% for c in top_candidates %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ c.name }}</td>
+        <td>{{ c.department }}</td>
+        <td>{{ c.aptitude_score }}%</td>
+        <td>{{ c.technical_score }}%</td>
+        <td>{{ c.communication_score }}%</td>
+        <td><span class="tag tag-good">{{ c.overall_score }}%</span></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7">No candidates matched yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Upcoming Interviews</h3><a href="#">View All</a></div>
+    {% for i in upcoming_interviews %}
+    <div class="event-card">
+      <div class="event-date"><span class="month">{{ i.date|date:"M"|upper }}</span><span class="day">{{ i.date|date:"d" }}</span></div>
+      <div class="event-info"><h4>{{ i.candidate_name }}</h4><p>{{ i.interview_type }}{% if i.time %} &middot; {{ i.time|time:"h:i A" }}{% endif %}</p></div>
+    </div>
+    {% empty %}
+    <div class="empty-state"><i class="fa-solid fa-people-arrows"></i>No interviews scheduled.</div>
+    {% endfor %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Interview Stages</h3></div>
+    <div class="donut-row">
+      <div class="donut" style="--p1:{{ total_interviews }};">
+        <span class="donut-value">{{ total_interviews }}</span>
+        <span class="donut-label">Total</span>
+      </div>
+      <ul class="legend">
+        {% for stage, count in stage_counts.items %}
+        <li><span class="dot legend-{{ forloop.counter }}"></span> {{ stage }} <b>{{ count }}</b></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</section>
+{% endblock %}

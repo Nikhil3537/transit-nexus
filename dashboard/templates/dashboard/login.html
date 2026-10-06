@@ -1,0 +1,76 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}Sign in · Transit Nexus{% endblock %}
+{% block body %}
+<div class="auth-page login-page">
+  <main class="login-shell">
+    <section class="login-welcome" aria-label="Transit Nexus introduction">
+      <a class="login-brand" href="{% url 'home' %}">
+        <img src="{% static 'dashboard/img/transit-logo.png' %}" alt="Transit Training and Recruitment Partner">
+      </a>
+      <div class="login-welcome-copy">
+        <span class="login-eyebrow"><span></span> TRANSIT NEXUS PORTAL</span>
+        <h1>Move forward<br>with confidence.</h1>
+        <p>One place for learning, training, and career opportunities.</p>
+      </div>
+      <div class="login-benefits">
+        <div><span class="login-benefit-icon"><i class="fa-solid fa-graduation-cap"></i></span><span><b>Learn</b><small>Track progress and build skills</small></span></div>
+        <div><span class="login-benefit-icon"><i class="fa-solid fa-people-group"></i></span><span><b>Collaborate</b><small>Connect with your college and trainers</small></span></div>
+        <div><span class="login-benefit-icon"><i class="fa-solid fa-briefcase"></i></span><span><b>Get career ready</b><small>Prepare for your next opportunity</small></span></div>
+      </div>
+      <span class="login-orbit login-orbit-one" aria-hidden="true"></span>
+      <span class="login-orbit login-orbit-two" aria-hidden="true"></span>
+    </section>
+
+    <section class="login-form-panel">
+    <div class="auth-module">
+    <div class="auth-card">
+      <div class="login-form-heading">
+        <span class="login-mobile-brand"><img src="{% static 'dashboard/img/transit-logo.png' %}" alt="Transit Nexus"></span>
+        <span class="login-form-icon"><i class="fa-solid fa-arrow-right-to-bracket"></i></span>
+        <p class="login-form-kicker">YOUR PORTAL IS READY</p>
+        <h2>Welcome back</h2>
+        <p class="auth-sub">Sign in to your college, student, trainer, or company account.</p>
+      </div>
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="{% if message.tags == 'success' %}auth-success{% else %}auth-error{% endif %}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
+
+        <label for="password">Password</label>
+        <div class="password-input-wrap">
+          <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
+          <button type="button" class="password-visibility-toggle" id="togglePassword" aria-label="Show password" title="Show password" aria-pressed="false"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>
+        </div>
+
+        <button type="submit" class="btn-primary login-submit">Sign in <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+      </form>
+
+      <p class="auth-hint">New student? <a href="{% url 'student_register' %}">Create account <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></p>
+    </div>
+    </div>
+    </section>
+  </main>
+</div>
+<script>
+  const passwordInput = document.getElementById("password");
+  const passwordToggle = document.getElementById("togglePassword");
+  passwordToggle.addEventListener("click", () => {
+    const showPassword = passwordInput.type === "password";
+    passwordInput.type = showPassword ? "text" : "password";
+    passwordToggle.setAttribute("aria-pressed", String(showPassword));
+    passwordToggle.setAttribute("aria-label", showPassword ? "Hide password" : "Show password");
+    passwordToggle.title = showPassword ? "Hide password" : "Show password";
+    passwordToggle.innerHTML = showPassword
+      ? '<i class="fa-regular fa-eye-slash" aria-hidden="true"></i>'
+      : '<i class="fa-regular fa-eye" aria-hidden="true"></i>';
+  });
+</script>
+{% endblock %}

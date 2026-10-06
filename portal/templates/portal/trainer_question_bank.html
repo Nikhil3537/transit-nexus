@@ -1,0 +1,18 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Question Bank · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Question Bank</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Subject</th><th>Topic</th><th>Questions</th><th>Difficulty</th></tr></thead>
+    <tbody>
+    {% for q in items %}
+      <tr><td>{{ q.subject }}</td><td>{{ q.topic }}</td><td>{{ q.questions_count }}</td>
+          <td>{% if q.difficulty == "easy" %}<span class="tag tag-good">Easy</span>
+              {% elif q.difficulty == "medium" %}<span class="tag tag-average">Medium</span>
+              {% else %}<span class="tag tag-needs-improvement">Hard</span>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="4">No question bank items yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

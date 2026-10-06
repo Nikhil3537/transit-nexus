@@ -1,0 +1,24 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}{{ online_test.title }} Results · Transit Nexus{% endblock %}
+{% block content %}
+<p><a href="{% url 'trainer_assessments' %}"><i class="fa-solid fa-arrow-left"></i> Assessments</a></p>
+<section class="panel">
+  <div class="panel-head"><h3>{{ online_test.title }}</h3><span class="muted">{{ online_test.opens_at|date:"d M Y H:i" }} – {{ online_test.closes_at|date:"d M Y H:i" }}</span></div>
+  {% if not results_available %}<p>Results and written answers will be available after the test closes.</p>{% else %}
+  <table class="data-table"><thead><tr><th>Student</th><th>Status</th><th>Score</th><th>Manual review</th><th>Submitted</th></tr></thead><tbody>
+    {% for attempt in attempts %}<tr><td>{{ attempt.student.user.get_full_name|default:attempt.student.user.username }}</td><td>{{ attempt.get_status_display }}</td><td>{% if attempt.status == "submitted" %}{{ attempt.score }} / {{ attempt.possible_points }}{% else %}Not submitted{% endif %}</td><td>{{ attempt.pending_manual_review }}</td><td>{{ attempt.submitted_at|date:"d M Y H:i"|default:"—" }}</td></tr>{% empty %}<tr><td colspan="5">No student attempts.</td></tr>{% endfor %}
+  </tbody></table>
+  {% for attempt in attempts %}
+    {% for answer in attempt.answers.all %}
+      {% if answer.question.question_type == "essay" or answer.question.question_type == "file" %}
+      <section class="panel essay-review">
+        <h4>{{ attempt.student.user.get_full_name|default:attempt.student.user.username }} · {{ answer.question.prompt }} ({{ answer.question.points }} points)</h4>
+        {% if answer.uploaded_file %}<p><a href="{% url 'download_test_answer_file' answer.pk %}">Download submitted file: {{ answer.uploaded_file.name }}</a></p>{% else %}<p>{{ answer.response.0|default:"No response" }}</p>{% endif %}
+        {% if not answer.reviewed %}<form method="post" action="{% url 'trainer_review_test_answer' online_test.pk answer.pk %}" class="form-grid">{% csrf_token %}<label>Points awarded<input type="number" name="points_awarded" min="0" max="{{ answer.question.points }}" required></label><button class="btn btn-primary" type="submit">Save score</button></form>{% else %}<p>Score: {{ answer.points_awarded }} / {{ answer.question.points }}</p>{% endif %}
+      </section>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Settings · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  {% if messages %}{% for m in messages %}<div class="alert-success">{{ m }}</div>{% endfor %}{% endif %}
+  <div class="panel-head"><h3>Account Settings</h3></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    <div><label>First Name</label><input type="text" name="first_name" value="{{ profile.user.first_name }}"></div>
+    <div><label>Last Name</label><input type="text" name="last_name" value="{{ profile.user.last_name }}"></div>
+    <div><label>Email</label><input type="email" name="email" value="{{ profile.user.email }}"></div>
+    <div><label>Username</label><input type="text" value="{{ profile.user.username }}" disabled></div>
+    <div style="grid-column: 1 / -1;"><button type="submit" class="btn-primary" style="width:auto; padding:11px 28px;">Save Changes</button></div>
+  </form>
+</section>
+
+<section class="panel" style="margin-top: 24px;">
+  <div class="panel-head"><h3>Availability</h3></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="availability">
+    <div><label>Availability Date</label><input type="date" name="availability_date" required></div>
+    <div>
+      <label>Availability Status</label>
+      <select name="is_available">
+        <option value="true">Available</option>
+        <option value="false">Not available</option>
+      </select>
+    </div>
+    <div style="grid-column: 1 / -1;"><label>Note</label><textarea name="availability_note" rows="3" placeholder="Workshop, travel, leave, etc."></textarea></div>
+    <div style="grid-column: 1 / -1;"><button type="submit" class="btn-primary" style="width:auto; padding:11px 28px;">Update Availability</button></div>
+  </form>
+
+  {% if availability_entries %}
+    <div style="margin-top: 20px;">
+      <h4>Saved dates</h4>
+      <ul>
+        {% for item in availability_entries %}
+          <li><strong>{{ item.date }}</strong> — {{ item.is_available|yesno:"Available,Not available" }}{% if item.note %}: {{ item.note }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

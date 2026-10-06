@@ -1,0 +1,14 @@
+{% load static %}
+<aside class="sidebar">
+  <p class="nav-section-label">MAIN NAVIGATION</p>
+  <nav class="nav-list">
+    {% for item in nav_items %}
+    <a href="{% url item.url %}" class="nav-item {% if item.active %}active{% endif %}"><i class="{{ item.icon }}"></i> {{ item.label }}</a>
+    {% endfor %}
+  </nav>
+
+  <form method="post" action="{% url 'logout' %}" class="logout-form">
+    {% csrf_token %}
+    <button type="submit" class="nav-item logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+  </form>
+</aside>

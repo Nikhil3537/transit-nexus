@@ -1,0 +1,29 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Calendar · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Upcoming Events</h3></div>
+  {% for ev in events %}
+  <div class="event-card">
+    <div class="event-date">
+      <span class="month">{{ ev.date|date:"M"|upper }}</span>
+      <span class="day">{{ ev.date|date:"d" }}</span>
+    </div>
+    <div class="event-info">
+      <h4>{{ ev.title }}</h4>
+      <p>
+        {% if ev.event_type == "class" %}<span class="tag tag-good">Live Class</span>
+        {% elif ev.event_type == "exam" %}<span class="tag tag-needs-improvement">Exam</span>
+        {% elif ev.event_type == "assignment" %}<span class="tag tag-average">Assignment Due</span>
+        {% else %}<span class="tag tag-good" style="background:var(--purple-light); color:var(--purple);">Workshop</span>
+        {% endif %}
+        {% if ev.start_time %}&middot; {{ ev.start_time|time:"h:i A" }}{% endif %}
+        {% if ev.instructor %}&middot; {{ ev.instructor }}{% endif %}
+      </p>
+    </div>
+  </div>
+  {% empty %}
+  <div class="empty-state"><i class="fa-solid fa-calendar-days"></i>No upcoming events.</div>
+  {% endfor %}
+</section>
+{% endblock %}

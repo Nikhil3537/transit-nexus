@@ -1,0 +1,22 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Attendance · Transit Nexus{% endblock %}
+{% block content %}
+<section class="stat-grid" style="grid-template-columns: repeat(1, 260px);">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="fa-solid fa-calendar-check"></i></div>
+    <div class="stat-body"><h3>Average Attendance</h3><p class="stat-value">{{ avg_pct }}%</p></div>
+  </div>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>Attendance by College</h3></div>
+  <table class="data-table">
+    <thead><tr><th>College</th><th>Attendance %</th><th>Present</th><th>Absent</th></tr></thead>
+    <tbody>
+    {% for s in summaries %}
+      <tr><td>{{ s.college_name }}</td><td><span class="tag tag-good">{{ s.attendance_pct }}%</span></td>
+          <td>{{ s.present_count }}</td><td>{{ s.absent_count }}</td></tr>
+    {% empty %}<tr><td colspan="4">No attendance data yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

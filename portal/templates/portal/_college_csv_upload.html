@@ -1,0 +1,16 @@
+{% if messages %}
+<section aria-live="polite">
+  {% for message in messages %}<p class="alert-{{ message.tags }}">{{ message }}</p>{% endfor %}
+</section>
+{% endif %}
+<section class="panel csv-upload-panel">
+  <div class="panel-head">
+    <h3>Upload CSV</h3>
+    <a class="btn btn-secondary" href="{% url 'college_csv_upload' csv_dataset %}?template=1"><i class="fa-solid fa-download"></i> Download template</a>
+  </div>
+  <form method="post" enctype="multipart/form-data" action="{% url 'college_csv_upload' csv_dataset %}" class="form-grid csv-upload-form">
+    {% csrf_token %}
+    <label>CSV file<input type="file" name="file" accept=".csv,text/csv" required></label>
+    <div><button class="btn btn-primary" type="submit"><i class="fa-solid fa-upload"></i> Upload {{ csv_dataset|title }}</button></div>
+  </form>
+</section>

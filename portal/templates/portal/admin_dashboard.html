@@ -1,0 +1,261 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Admin Dashboard · Transit Nexus{% endblock %}
+{% block content %}
+
+<section class="dashboard-hero">
+  <div>
+    <h1>Welcome back, {{ request.user.first_name|default:request.user.username }}</h1>
+  </div>
+  <div class="dashboard-actions">
+    <a class="btn btn-primary" href="{% url 'admin_users' %}#student-form"><i class="fa-solid fa-user-plus"></i> Create Student</a>
+    <a class="btn btn-secondary" href="{% url 'admin_trainers' %}"><i class="fa-solid fa-chalkboard-user"></i> Manage Trainers</a>
+    <a class="btn btn-secondary" href="{% url 'admin_users' %}"><i class="fa-solid fa-users-gear"></i> Open User Directory</a>
+  </div>
+</section>
+
+<section class="stat-grid" style="grid-template-columns: repeat(6, 1fr);">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="fa-solid fa-building-columns"></i></div>
+    <div class="stat-body"><h3>Total Colleges</h3><p class="stat-value">{{ total_colleges }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fa-solid fa-user-graduate"></i></div>
+    <div class="stat-body"><h3>Total Students</h3><p class="stat-value">{{ total_students }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="fa-solid fa-chalkboard-user"></i></div>
+    <div class="stat-body"><h3>Active Trainings</h3><p class="stat-value">{{ active_trainings }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="fa-solid fa-clipboard-list"></i></div>
+    <div class="stat-body"><h3>Assessments Conducted</h3><p class="stat-value">{{ assessments_conducted }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon teal"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+    <div class="stat-body"><h3>Pending Payments</h3><p class="stat-value">&#8377;{{ total_pending_payment }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--red-light); color:var(--red);"><i class="fa-solid fa-headset"></i></div>
+    <div class="stat-body"><h3>Open Issues</h3><p class="stat-value">{{ open_issues }}</p></div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>College Overview</h3><a href="{% url 'admin_colleges' %}">View all colleges</a></div>
+    <table class="data-table">
+      <thead><tr><th>College</th><th>Students</th><th>Programs</th><th>Pending</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for c in colleges %}
+        <tr>
+          <td><a href="{% url 'admin_college_detail' c.profile.pk %}">{{ c.name }}</a></td>
+          <td>{{ c.students_count }}</td>
+          <td>{{ c.active_programs }}</td>
+          <td>&#8377;{{ c.pending_payment }}</td>
+          <td>
+            {% if c.status == "active" %}<span class="tag tag-good">Active</span>
+            {% else %}<span class="tag tag-average">Payment Due</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Payment Overview</h3></div>
+    <div class="donut-row">
+      <div class="donut" style="--p1:60;">
+        <span class="donut-value">&#8377;{{ total_pending_payment }}</span>
+        <span class="donut-label">Outstanding</span>
+      </div>
+      <ul class="legend">
+        {% for label, amount in payment_buckets.items %}
+        <li><span class="dot legend-{{ forloop.counter }}"></span> {{ label }} <b>&#8377;{{ amount }}</b></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>College Trainer Availability</h3></div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>College</th>
+        <th>Trainer</th>
+        <th>Email</th>
+        <th>Status</th>
+        <th>Assignments</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in trainer_roster %}
+        <tr>
+          <td>{{ row.college_name }}</td>
+          <td>{{ row.trainer.user.get_full_name|default:row.trainer.user.username }}</td>
+          <td>{{ row.trainer.user.email|default:"—" }}</td>
+          <td>
+            {% if row.status == "Available" %}
+              <span class="tag tag-good">Available</span>
+            {% else %}
+              <span class="tag tag-warning">Not available</span>
+            {% endif %}
+          </td>
+          <td>
+            {% for assignment in row.assignments %}
+              <div>{{ assignment.batch_name }} · {{ assignment.title }}</div>
+            {% empty %}
+              <span class="muted">No active assignment</span>
+            {% endfor %}
+          </td>
+          <td>{{ row.note }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">No trainers assigned yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Assessment Schedule</h3><a href="#">View Full Schedule</a></div>
+    {% for a in assessment_schedule %}
+      <div class="event-card">
+        <div class="event-date"><span class="month">{{ a.date|date:"M"|upper }}</span><span class="day">{{ a.date|date:"d" }}</span></div>
+        <div class="event-info"><h4>{{ a.title }}</h4><p>{{ a.college_name }}</p></div>
+      </div>
+    {% empty %}
+      <div class="empty-state"><i class="fa-solid fa-clipboard-list"></i>No assessments scheduled.</div>
+    {% endfor %}
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Upcoming Interviews</h3><a href="#">View All Interviews</a></div>
+    {% for i in interview_schedule %}
+      <div class="event-card">
+        <div class="event-date"><span class="month">{{ i.date|date:"M"|upper }}</span><span class="day">{{ i.date|date:"d" }}</span></div>
+        <div class="event-info"><h4>{{ i.title }}</h4><p>{{ i.college_name }}</p></div>
+      </div>
+    {% empty %}
+      <div class="empty-state"><i class="fa-solid fa-people-arrows"></i>No interviews scheduled.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="grid-3">
+  <div class="panel">
+    <div class="panel-head"><h3>Project Overview</h3></div>
+    <div class="profile-stats" style="justify-content: space-between;">
+      <div><b>{{ total_projects }}</b><span>Total Projects</span></div>
+      <div><b>{{ active_projects }}</b><span>Active</span></div>
+      <div><b>{{ completed_projects }}</b><span>Completed</span></div>
+    </div>
+  </div>
+  <div class="panel" style="grid-column: span 2;">
+    <div class="panel-head"><h3>Top Programs Running</h3><a href="{% url 'admin_programs' %}">View All Programs</a></div>
+    {% for p in top_programs %}
+      <div class="skill-row">
+        <div class="skill-row-head"><span>{{ p.name }}</span><b>{{ p.students_count }} Students</b></div>
+        <div class="skill-track"><div class="skill-fill" style="width:{% widthratio p.students_count top_programs.0.students_count 100 %}%; background:var(--blue);"></div></div>
+      </div>
+    {% empty %}
+      <div class="empty-state"><i class="fa-solid fa-chalkboard-user"></i>No programs running.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Project Wise Budget Overview</h3><a href="#">View All</a></div>
+    <table class="data-table">
+      <thead><tr><th>Project</th><th>College</th><th>Budget</th><th>Spent</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for p in projects %}
+        <tr>
+          <td>{{ p.name }}</td>
+          <td>{{ p.college_name }}</td>
+          <td>&#8377;{{ p.budget }}</td>
+          <td>&#8377;{{ p.spent }}</td>
+          <td>
+            {% if p.status == "In Progress" %}<span class="tag tag-average">In Progress</span>
+            {% elif p.status == "Completed" %}<span class="tag tag-good">Completed</span>
+            {% else %}<span class="tag tag-pending">On Hold</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Recent Issues / Support Tickets</h3><a href="#">View All Tickets</a></div>
+    <table class="data-table">
+      <thead><tr><th>Ticket</th><th>College</th><th>Issue</th><th>Priority</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for t in tickets %}
+        <tr>
+          <td>{{ t.ticket_code }}</td>
+          <td>{{ t.college_name }}</td>
+          <td>{{ t.issue }}</td>
+          <td>
+            {% if t.priority == "High" %}<span class="tag tag-needs-improvement">High</span>
+            {% elif t.priority == "Medium" %}<span class="tag tag-average">Medium</span>
+            {% else %}<span class="tag tag-good">Low</span>{% endif %}
+          </td>
+          <td>
+            {% if t.status == "Resolved" %}<span class="tag tag-good">Resolved</span>
+            {% elif t.status == "In Progress" %}<span class="tag tag-average">In Progress</span>
+            {% else %}<span class="tag tag-needs-improvement">Open</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Syllabus Updates</h3><a href="#">View All</a></div>
+    <table class="data-table">
+      <thead><tr><th>Program</th><th>Course</th><th>College</th><th>Last Updated</th><th>Updated By</th></tr></thead>
+      <tbody>
+      {% for s in syllabus_updates %}
+        <tr>
+          <td>{{ s.program }}</td>
+          <td>{{ s.course }}</td>
+          <td>{{ s.college_name }}</td>
+          <td>{{ s.updated_date|date:"d M Y" }}</td>
+          <td>{{ s.updated_by }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Monthly Analytics Summary</h3></div>
+    <div class="stat-grid" style="grid-template-columns: repeat(2, 1fr); gap:12px;">
+      <div class="stat-card">
+        <div class="stat-icon blue"><i class="fa-solid fa-building-columns"></i></div>
+        <div class="stat-body"><h3>Colleges Onboarded</h3><p class="stat-value">{{ profile.colleges_onboarded_this_month }}</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><i class="fa-solid fa-user-plus"></i></div>
+        <div class="stat-body"><h3>Students Enrolled</h3><p class="stat-value">{{ profile.students_enrolled_this_month }}</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple"><i class="fa-solid fa-clipboard-check"></i></div>
+        <div class="stat-body"><h3>Assessments Taken</h3><p class="stat-value">{{ profile.assessments_taken_this_month }}</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon orange"><i class="fa-solid fa-user-tie"></i></div>
+        <div class="stat-body"><h3>Placements</h3><p class="stat-value">{{ profile.placements_this_month }}</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

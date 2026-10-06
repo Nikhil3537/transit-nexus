@@ -1,0 +1,16 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Syllabus Management · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Recent Syllabus Updates</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Program</th><th>Course</th><th>College</th><th>Updated</th><th>By</th></tr></thead>
+    <tbody>
+    {% for s in updates %}
+      <tr><td>{{ s.program }}</td><td>{{ s.course }}</td><td>{{ s.college_name }}</td>
+          <td>{{ s.updated_date|date:"d M Y" }}</td><td>{{ s.updated_by }}</td></tr>
+    {% empty %}<tr><td colspan="5">No syllabus updates yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

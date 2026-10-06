@@ -1,0 +1,17 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Communications · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Announcements</h3></div>
+  {% for a in announcements %}
+  <div class="message-item">
+    <div class="message-avatar"><i class="fa-solid fa-bullhorn"></i></div>
+    <div class="message-body">
+      <h4>{{ a.title }} <span class="msg-role">{{ a.audience }}</span></h4>
+      <p>{{ a.body }}</p>
+    </div>
+    <div class="message-time">{{ a.posted_date|date:"d M Y" }}</div>
+  </div>
+  {% empty %}<div class="empty-state"><i class="fa-solid fa-bullhorn"></i>No announcements yet.</div>{% endfor %}
+</section>
+{% endblock %}

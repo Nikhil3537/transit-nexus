@@ -1,0 +1,42 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Attendance · Transit Nexus{% endblock %}
+{% block content %}
+{% include "portal/_college_csv_upload.html" %}
+<section class="panel">
+  <div class="panel-head"><h3>{% if edit_record %}Update Department Attendance{% else %}Add Department Attendance{% endif %}</h3></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    {% if edit_record %}<input type="hidden" name="record_id" value="{{ edit_record.pk }}">{% endif %}
+    {% for field in record_form %}<label>{{ field.label }}{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>{% endfor %}
+    <div><button class="btn btn-primary" type="submit">{% if edit_record %}Save Changes{% else %}Add Attendance{% endif %}</button>{% if edit_record %} <a class="btn btn-secondary" href="{% url 'college_attendance' %}">Cancel</a>{% endif %}</div>
+  </form>
+</section>
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Attendance Trend</h3></div>
+    <canvas id="attTrend" height="120"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>By Department</h3></div>
+    <table class="data-table">
+      <thead><tr><th>Department</th><th>Attendance %</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for d in departments %}
+        <tr><td>{{ d.name }}</td><td><span class="tag tag-good">{{ d.attendance_pct }}%</span></td><td>{% if d.pk %}<a class="btn btn-secondary" href="?edit={{ d.pk }}">Edit</a><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="record_id" value="{{ d.pk }}"><input type="hidden" name="action" value="delete"><button class="btn btn-danger" type="submit">Delete</button></form>{% else %}<span class="muted">Summary record</span>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+{% block page_scripts %}
+<script>
+  const trend = {{ trend_json|safe }};
+  new Chart(document.getElementById('attTrend'), {
+    type: 'line',
+    data: { labels: trend.labels, datasets: [{ label: 'Avg %', data: trend.values,
+      borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#22c55e' }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+  });
+</script>
+{% endblock %}

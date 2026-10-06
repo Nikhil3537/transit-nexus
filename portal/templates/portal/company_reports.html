@@ -1,0 +1,18 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Reports · Transit Nexus{% endblock %}
+{% block content %}
+<section class="stat-grid" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="fa-solid fa-user-graduate"></i></div>
+    <div class="stat-body"><h3>Total Candidates</h3><p class="stat-value">{{ total_candidates }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="fa-solid fa-people-arrows"></i></div>
+    <div class="stat-body"><h3>Total Interviews</h3><p class="stat-value">{{ total_interviews }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fa-solid fa-user-check"></i></div>
+    <div class="stat-body"><h3>Hired</h3><p class="stat-value">{{ hired }}</p></div>
+  </div>
+</section>
+{% endblock %}

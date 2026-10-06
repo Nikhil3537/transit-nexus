@@ -1,0 +1,127 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}College Dashboard · Transit Nexus{% endblock %}
+{% block content %}
+
+<section class="stat-grid" style="grid-template-columns: repeat(5, 1fr);">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="fa-solid fa-user-graduate"></i></div>
+    <div class="stat-body"><h3>Total Students</h3><p class="stat-value">{{ total_students }}</p><span class="stat-sub">Across {{ departments|length }} departments</span></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div>
+    <div class="stat-body"><h3>Avg Overall Performance</h3><p class="stat-value">{{ avg_performance }}%</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="fa-solid fa-clipboard-list"></i></div>
+    <div class="stat-body"><h3>Assessments Conducted</h3><p class="stat-value">{{ total_assessments }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="fa-regular fa-clock"></i></div>
+    <div class="stat-body"><h3>Training Hours Delivered</h3><p class="stat-value">{{ total_training_hours }}</p></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon teal"><i class="fa-solid fa-user-check"></i></div>
+    <div class="stat-body"><h3>Placement Eligible</h3><p class="stat-value">{{ placement_eligible }}</p></div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Department Performance Overview</h3><a href="{% url 'college_departments' %}">View Detail Report</a></div>
+    <table class="data-table">
+      <thead><tr><th>Department</th><th>Students</th><th>Avg %</th><th>Attendance</th><th>Assessments</th><th>Hours</th></tr></thead>
+      <tbody>
+      {% for d in departments %}
+        <tr>
+          <td>{{ d.name }} ({{ d.code }})</td>
+          <td>{{ d.total_students }}</td>
+          <td><span class="tag tag-{{ d.performance_label|slugify }}">{{ d.avg_performance }}%</span></td>
+          <td>{{ d.attendance_pct }}%</td>
+          <td>{{ d.assessments_taken }}</td>
+          <td>{{ d.training_hours }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Performance Trend (Overall College)</h3></div>
+    <canvas id="perfTrend" height="140"></canvas>
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Performance Distribution (All Students)</h3></div>
+    <div class="donut-row">
+      <div class="donut" style="--p1:{{ performance_distribution.0.pct }};">
+        <span class="donut-value">{{ total_students }}</span>
+        <span class="donut-label">Students</span>
+      </div>
+      <ul class="legend">
+        {% for b in performance_distribution %}
+        <li><span class="dot legend-{{ forloop.counter }}"></span> {{ b.label }} <b>{{ b.count }} ({{ b.pct }}%)</b></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Attendance Overview</h3></div>
+    <div class="donut-row">
+      <div class="donut" style="--p1:{{ avg_attendance }};">
+        <span class="donut-value">{{ avg_attendance }}%</span>
+        <span class="donut-label">Average</span>
+      </div>
+      <ul class="legend">
+        <li><span class="dot green"></span> Present <b>{{ avg_attendance }}%</b></li>
+        <li><span class="dot red"></span> Absent <b>{{ absent_pct|default:"—" }}</b></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><h3>Top Performing Departments</h3></div>
+    {% for d in top_departments %}
+    <div class="event-card">
+      <div class="event-date" style="background:var(--yellow-light); color:var(--yellow);">
+        <span class="day">#{{ forloop.counter }}</span>
+      </div>
+      <div class="event-info"><h4>{{ d.name }}</h4><p>{{ d.avg_performance }}% average performance</p></div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Quick Reports</h3></div>
+    <div class="quick-links">
+      {% for r in quick_reports %}
+      <a href="{% url 'college_reports' %}" class="quick-link"><i class="fa-solid fa-file-lines"></i> {{ r.title }}</a>
+      {% empty %}
+      <a href="{% url 'college_reports' %}" class="quick-link"><i class="fa-solid fa-file-lines"></i> Department Wise Performance Report</a>
+      <a href="{% url 'college_students' %}" class="quick-link"><i class="fa-solid fa-file-lines"></i> Student Performance Report</a>
+      <a href="{% url 'college_attendance' %}" class="quick-link"><i class="fa-solid fa-file-lines"></i> Attendance Summary Report</a>
+      <a href="{% url 'college_programs' %}" class="quick-link"><i class="fa-solid fa-file-lines"></i> Training Programs Report</a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  const trend = {{ trend_json|safe }};
+  new Chart(document.getElementById('perfTrend'), {
+    type: 'line',
+    data: {
+      labels: trend.labels,
+      datasets: [{
+        label: 'Avg Performance %', data: trend.values,
+        borderColor: '#3b6ef6', backgroundColor: 'rgba(59,110,246,0.1)',
+        tension: 0.4, fill: true, pointBackgroundColor: '#3b6ef6',
+      }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+  });
+</script>
+{% endblock %}

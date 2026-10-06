@@ -1,0 +1,22 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Student Performance · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Students in Your College</h3></div>
+  <table class="data-table">
+    <thead><tr><th>#</th><th>Student</th><th>Department</th><th>Username</th><th>College</th><th>Email</th></tr></thead>
+    <tbody>
+    {% for s in students %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ s.user.get_full_name|default:s.user.username }}</td>
+        <td>{{ s.department|default:"-" }}</td>
+        <td>{{ s.user.username }}</td>
+        <td>{{ s.college.college_name|default:"-" }}</td>
+        <td>{{ s.user.email|default:"-" }}</td>
+      </tr>
+    {% empty %}<tr><td colspan="6">No students are assigned to your college yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

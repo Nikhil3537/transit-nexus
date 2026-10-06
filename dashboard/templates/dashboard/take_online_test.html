@@ -1,0 +1,65 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}{{ online_test.title }} · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>{{ online_test.title }}</h3>{% if deadline %}<strong id="testTimer" data-deadline="{{ deadline|date:'c' }}"></strong>{% endif %}</div>
+  {% if online_test.instructions %}<p>{{ online_test.instructions|linebreaksbr }}</p>{% endif %}
+  {% if results_released and attempt and attempt.status == "submitted" %}
+    <h4>Result: {{ attempt.score }} / {{ attempt.possible_points }}</h4>
+    {% if attempt.pending_manual_review %}<p>Some written responses are still being reviewed.</p>{% endif %}
+    {% for answer in attempt.answers.all %}<article class="test-result-answer"><h4>{{ answer.question.prompt }}</h4>{% if answer.uploaded_file %}<p>File: <a href="{% url 'download_test_answer_file' answer.pk %}">Download your submitted file</a></p>{% else %}<p>Your answer: {{ answer.response|join:", "|default:"No answer" }}</p>{% endif %}<p>{% if answer.question.question_type == "essay" or answer.question.question_type == "file" %}{% if not answer.reviewed %}Awaiting review{% else %}{{ answer.points_awarded }} / {{ answer.question.points }} points{% endif %}{% else %}{{ answer.points_awarded }} / {{ answer.question.points }} points{% endif %}</p></article>{% endfor %}
+  {% elif attempt and attempt.status == "submitted" %}
+    <p>Your test has been submitted. Your result will be released after {{ online_test.closes_at|date:"d M Y H:i" }}.</p>
+  {% elif not available and not attempt %}
+    <p>{% if now < online_test.opens_at %}This test opens {{ online_test.opens_at|date:"d M Y H:i" }}.{% else %}This test is closed.{% endif %}</p>
+  {% elif attempt and attempt.status == "in_progress" %}
+    <form method="post" enctype="multipart/form-data" id="onlineTestForm">
+      {% csrf_token %}
+      {% for question in questions %}
+      <fieldset class="panel test-question">
+        <legend>Question {{ forloop.counter }} · {{ question.points }} point{{ question.points|pluralize }}</legend>
+        <p>{{ question.prompt }}</p>
+        {% if question.question_type == "single" or question.question_type == "true_false" %}
+          {% for option in question.options %}<label class="test-option"><input type="radio" name="answer_{{ question.pk }}" value="{{ option }}"> {{ option }}</label>{% endfor %}
+        {% elif question.question_type == "multiple" %}
+          {% for option in question.options %}<label class="test-option"><input type="checkbox" name="answer_{{ question.pk }}" value="{{ option }}"> {{ option }}</label>{% endfor %}
+        {% elif question.question_type == "matching" %}
+          <p>Put these items in the requested order, one per line:</p><ol>{% for item in question.options %}<li>{{ item }}</li>{% endfor %}</ol>
+          <textarea name="answer_{{ question.pk }}" rows="{{ question.options|length|default:3 }}" placeholder="Enter one item per line"></textarea>
+        {% elif question.question_type == "numeric" %}
+          <input type="number" step="any" name="answer_{{ question.pk }}">
+        {% elif question.question_type == "file" %}
+          <input type="file" name="answer_{{ question.pk }}" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
+        {% elif question.question_type == "fill_blank" %}
+          <input type="text" name="answer_{{ question.pk }}" maxlength="500" autocomplete="off">
+        {% elif question.question_type == "short" %}
+          <input type="text" name="answer_{{ question.pk }}" maxlength="500" autocomplete="off">
+        {% else %}
+          <textarea name="answer_{{ question.pk }}" rows="5"></textarea>
+        {% endif %}
+      </fieldset>
+      {% endfor %}
+      <button class="btn btn-primary" type="submit" name="action" value="submit">Submit test</button>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}
+{% block page_scripts %}
+{% if deadline and attempt.status == "in_progress" %}
+<script>
+  const timerElement = document.getElementById("testTimer");
+  const testForm = document.getElementById("onlineTestForm");
+  const endAt = new Date(timerElement.dataset.deadline).getTime();
+  const updateTimer = () => {
+    const secondsLeft = Math.max(0, Math.floor((endAt - Date.now()) / 1000));
+    timerElement.textContent = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")} remaining`;
+    if (secondsLeft <= 0) testForm.requestSubmit();
+  };
+  updateTimer();
+  const timerInterval = setInterval(() => {
+    updateTimer();
+    if (Date.now() >= endAt) clearInterval(timerInterval);
+  }, 1000);
+</script>
+{% endif %}
+{% endblock %}
