@@ -8,6 +8,109 @@ from .models import (
 )
 
 
+ACADEMIC_PROGRAMME_CHOICES = [
+    ("Engineering & Technology", [
+        ("Artificial Intelligence and Data Science", "Artificial Intelligence and Data Science"),
+        ("Computer Science and Engineering", "Computer Science and Engineering"),
+        ("Information Science and Engineering", "Information Science and Engineering"),
+        ("Electronics and Communication Engineering", "Electronics and Communication Engineering"),
+        ("Electrical and Electronics Engineering", "Electrical and Electronics Engineering"),
+        ("Mechanical Engineering", "Mechanical Engineering"),
+        ("Civil Engineering", "Civil Engineering"),
+        ("Artificial Intelligence and Machine Learning", "Artificial Intelligence and Machine Learning"),
+        ("Robotics and Artificial Intelligence", "Robotics and Artificial Intelligence"),
+        ("Aeronautical Engineering", "Aeronautical Engineering"),
+        ("Aerospace Engineering", "Aerospace Engineering"),
+        ("Automobile Engineering", "Automobile Engineering"),
+        ("Biotechnology", "Biotechnology"),
+        ("Chemical Engineering", "Chemical Engineering"),
+        ("Industrial Engineering", "Industrial Engineering"),
+        ("Biomedical Engineering", "Biomedical Engineering"),
+        ("Mining Engineering", "Mining Engineering"),
+        ("Food Technology", "Food Technology"),
+        ("Agricultural Engineering", "Agricultural Engineering"),
+        ("Other Engineering", "Other Engineering"),
+    ]),
+    ("Architecture & Design", [
+        ("Bachelor of Architecture (B.Arch)", "Bachelor of Architecture (B.Arch)"),
+        ("Bachelor of Design (B.Des)", "Bachelor of Design (B.Des)"),
+        ("Interior Design", "Interior Design"),
+        ("Fashion Design", "Fashion Design"),
+        ("Product Design", "Product Design"),
+        ("Communication Design", "Communication Design"),
+        ("Other Design", "Other Design"),
+    ]),
+    ("Medical & Health Sciences", [
+        ("Bachelor of Nursing (B.Sc Nursing)", "Bachelor of Nursing (B.Sc Nursing)"),
+        ("General Nursing and Midwifery (GNM)", "General Nursing and Midwifery (GNM)"),
+        ("Bachelor of Physiotherapy (BPT)", "Bachelor of Physiotherapy (BPT)"),
+        ("Bachelor of Pharmacy (B.Pharm)", "Bachelor of Pharmacy (B.Pharm)"),
+        ("Doctor of Pharmacy (Pharm.D)", "Doctor of Pharmacy (Pharm.D)"),
+        ("Allied Health Sciences", "Allied Health Sciences"),
+        ("Medical Laboratory Technology", "Medical Laboratory Technology"),
+        ("Radiology and Medical Imaging", "Radiology and Medical Imaging"),
+        ("Other Health Sciences", "Other Health Sciences"),
+    ]),
+    ("Computer & IT", [
+        ("Bachelor of Computer Applications (BCA)", "Bachelor of Computer Applications (BCA)"),
+        ("Information Technology", "Information Technology"),
+        ("Data Science", "Data Science"),
+        ("Cyber Security", "Cyber Security"),
+        ("Computer Applications", "Computer Applications"),
+    ]),
+    ("Management & Commerce", [
+        ("Bachelor of Business Administration (BBA)", "Bachelor of Business Administration (BBA)"),
+        ("Master of Business Administration (MBA)", "Master of Business Administration (MBA)"),
+        ("Bachelor of Commerce (B.Com)", "Bachelor of Commerce (B.Com)"),
+        ("Bachelor of Management Studies (BMS)", "Bachelor of Management Studies (BMS)"),
+        ("Bachelor of Business Management (BBM)", "Bachelor of Business Management (BBM)"),
+        ("Bachelor of Hotel Management (BHM)", "Bachelor of Hotel Management (BHM)"),
+    ]),
+    ("Science", [
+        ("Bachelor of Science (B.Sc)", "Bachelor of Science (B.Sc)"),
+        ("Microbiology", "Microbiology"),
+        ("Biochemistry", "Biochemistry"),
+        ("Physics", "Physics"),
+        ("Chemistry", "Chemistry"),
+        ("Mathematics", "Mathematics"),
+        ("Statistics", "Statistics"),
+        ("Environmental Science", "Environmental Science"),
+    ]),
+    ("Arts & Humanities", [
+        ("Bachelor of Arts (BA)", "Bachelor of Arts (BA)"),
+        ("English", "English"),
+        ("Economics", "Economics"),
+        ("Psychology", "Psychology"),
+        ("Journalism and Mass Communication", "Journalism and Mass Communication"),
+        ("Social Work", "Social Work"),
+        ("Political Science", "Political Science"),
+        ("Sociology", "Sociology"),
+    ]),
+    ("Law", [
+        ("Bachelor of Laws (LL.B)", "Bachelor of Laws (LL.B)"),
+        ("BA LL.B", "BA LL.B"),
+        ("BBA LL.B", "BBA LL.B"),
+        ("B.Com LL.B", "B.Com LL.B"),
+    ]),
+    ("Education", [
+        ("Bachelor of Education (B.Ed)", "Bachelor of Education (B.Ed)"),
+        ("Bachelor of Elementary Education (B.El.Ed)", "Bachelor of Elementary Education (B.El.Ed)"),
+    ]),
+    ("Agriculture", [
+        ("Bachelor of Science in Agriculture (B.Sc Agriculture)", "Bachelor of Science in Agriculture (B.Sc Agriculture)"),
+        ("Horticulture", "Horticulture"),
+        ("Forestry", "Forestry"),
+        ("Dairy Technology", "Dairy Technology"),
+    ]),
+    ("Other Programmes", [
+        ("Bachelor of Social Work (BSW)", "Bachelor of Social Work (BSW)"),
+        ("Bachelor of Library and Information Science (B.Lib.I.Sc)", "Bachelor of Library and Information Science (B.Lib.I.Sc)"),
+        ("Bachelor of Travel and Tourism", "Bachelor of Travel and Tourism"),
+        ("Other Undergraduate Programme", "Other Undergraduate Programme"),
+    ]),
+]
+
+
 class CollegeStudentForm(forms.ModelForm):
     avg_score = forms.DecimalField(required=False, min_value=0, max_value=100)
     attendance_pct = forms.DecimalField(required=False, min_value=0, max_value=100)
@@ -94,6 +197,7 @@ class CollegeProgramForm(forms.ModelForm):
 
 
 class DepartmentAttendanceForm(forms.ModelForm):
+    name = forms.ChoiceField(choices=ACADEMIC_PROGRAMME_CHOICES, label="Academic programme")
     total_students = forms.IntegerField(required=False, min_value=0)
     avg_performance = forms.DecimalField(required=False, min_value=0, max_value=100)
     assessments_taken = forms.IntegerField(required=False, min_value=0)
