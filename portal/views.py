@@ -27,7 +27,7 @@ from .models import (
     OnlineTestAttempt, OnlineTestAnswer, JobDrive, Offer,
 )
 from .forms import (
-    CollegeAssessmentForm, CollegeInvoiceForm, CollegeProgramForm, CollegeQuickReportForm,
+    CollegeAssessmentForm, CollegeExternalTestForm, CollegeInvoiceForm, CollegeProgramForm, CollegeQuickReportForm,
     CollegeInvoiceForm, CollegeQuickReportForm, CollegeStudentAccountForm, CollegeStudentForm,
     DepartmentAttendanceForm, FacultyForm, OnlineTestForm, PlacementRecordForm, SyllabusCoverageForm,
 )
@@ -898,8 +898,10 @@ def admin_programs(request):
 def admin_assessments(request):
     profile, _ = AdminProfile.objects.get_or_create(user=request.user)
     items = AdminScheduleItem.objects.filter(kind="assessment")
+    online_tests = OnlineTest.objects.filter(external_url__gt="").select_related("college", "trainer__user")
     ctx = _page_ctx(profile, ADMIN_NAV, "Assessments", "Assessments",
-                    f"{items.count()} assessments scheduled platform-wide", "Super Admin", items=items)
+                    f"{items.count() + online_tests.count()} assessments scheduled platform-wide", "Super Admin",
+                    items=items, online_tests=online_tests)
     return render(request, "portal/admin_assessments.html", ctx)
 
 
@@ -1604,11 +1606,44 @@ def college_students(request):
 def college_assessments(request):
     profile = request.user.college_profile
     assessments = profile.assessments.all()
-    management = _college_record_context(request, profile, CollegeAssessment, CollegeAssessmentForm, "college_assessments")
+    linked_tests = profile.online_tests.filter(external_url__gt="", trainer__isnull=True).all()
+    external_form = CollegeExternalTestForm()
+    external_action = request.method == "POST" and request.POST.get("action") in {"add_external_test", "delete_external_test"}
+
+    if external_action and request.POST.get("action") == "add_external_test":
+        external_form = CollegeExternalTestForm(request.POST)
+        if external_form.is_valid():
+            online_test = external_form.save(commit=False)
+            online_test.college = profile
+            online_test.trainer = None
+            online_test.save()
+            messages.success(request, "Test link scheduled for students at your college.")
+            return redirect("college_assessments")
+    elif external_action and request.POST.get("action") == "delete_external_test":
+        test_id = request.POST.get("test_id", "")
+        linked_test = profile.online_tests.filter(
+            pk=test_id, external_url__gt="", trainer__isnull=True,
+        ).first() if test_id.isdecimal() else None
+        if linked_test:
+            linked_test.delete()
+            messages.success(request, "Test link removed.")
+        else:
+            messages.error(request, "That test link was not found for your college.")
+        return redirect("college_assessments")
+
+    if external_action:
+        management = {
+            "records": assessments,
+            "edit_record": None,
+            "record_form": CollegeAssessmentForm(),
+        }
+    else:
+        management = _college_record_context(request, profile, CollegeAssessment, CollegeAssessmentForm, "college_assessments")
     if not isinstance(management, dict):
         return management
     ctx = _page_ctx(profile, COLLEGE_NAV, "Assessments", "Assessments",
                     f"{assessments.count()} assessments", "College Admin", assessments=assessments,
+                    linked_tests=linked_tests, external_form=external_form,
                     csv_dataset="assessments", **management)
     return render(request, "portal/college_assessments.html", ctx)
 

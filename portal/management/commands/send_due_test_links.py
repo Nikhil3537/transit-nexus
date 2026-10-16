@@ -32,7 +32,7 @@ class Command(BaseCommand):
             ).exclude(user__email="").values_list("user__email", flat=True)
             recipients = list(dict.fromkeys(
                 [email.strip() for email in student_emails if email and email.strip()]
-                + ([test.trainer.user.email.strip()] if test.trainer.user.is_active and test.trainer.user.email.strip() else [])
+                + ([test.trainer.user.email.strip()] if test.trainer and test.trainer.user.is_active and test.trainer.user.email.strip() else [])
             ))
             if not recipients:
                 self.stderr.write(f"No email recipients for test {test.pk} ({test.title}); will retry.")

@@ -12,4 +12,15 @@
     </tbody>
   </table>
 </section>
+<section class="panel">
+  <div class="panel-head"><h3>College Test Links</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Test</th><th>College</th><th>Created by</th><th>Opens</th><th>Closes</th><th>External URL</th></tr></thead>
+    <tbody>
+    {% for test in online_tests %}
+      <tr><td>{{ test.title }}</td><td>{{ test.college.college_name|default:"—" }}</td><td>{% if test.trainer %}{{ test.trainer.user.get_full_name|default:test.trainer.user.username }}{% else %}College account{% endif %}</td><td>{{ test.opens_at|date:"d M Y H:i" }}</td><td>{{ test.closes_at|date:"d M Y H:i" }}</td><td><a href="{{ test.external_url }}" target="_blank" rel="noopener">Open test</a></td></tr>
+    {% empty %}<tr><td colspan="6">No college test links have been added.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
 {% endblock %}

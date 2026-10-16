@@ -269,3 +269,34 @@ class OnlineTestForm(forms.ModelForm):
         if duration is not None and not 1 <= duration <= 600:
             self.add_error("duration_minutes", "Duration must be between 1 and 600 minutes.")
         return cleaned
+
+
+class CollegeExternalTestForm(forms.ModelForm):
+    external_url = forms.URLField(
+        required=True,
+        label="Test URL",
+        help_text="Paste the participant link from Testmoz, not your Testmoz account URL.",
+    )
+    opens_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
+    closes_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
+
+    class Meta:
+        model = OnlineTest
+        fields = ["title", "instructions", "external_url", "opens_at", "closes_at", "duration_minutes"]
+        widgets = {
+            "instructions": forms.Textarea(attrs={"rows": 3}),
+            "external_url": forms.URLInput(attrs={"placeholder": "https://testmoz.com/your-test"}),
+            "opens_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+            "closes_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+            "duration_minutes": forms.NumberInput(attrs={"min": "1", "max": "600"}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        opens_at = cleaned.get("opens_at")
+        closes_at = cleaned.get("closes_at")
+        if opens_at and closes_at and closes_at <= opens_at:
+            self.add_error("closes_at", "The close time must be after the open time.")
+        if closes_at and closes_at <= timezone.now():
+            self.add_error("closes_at", "The test must close in the future.")
+        return cleaned

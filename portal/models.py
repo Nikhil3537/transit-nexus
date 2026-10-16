@@ -211,7 +211,7 @@ class TrainerAssessment(models.Model):
 
 
 class OnlineTest(models.Model):
-    trainer = models.ForeignKey(TrainerProfile, on_delete=models.CASCADE, related_name="online_tests")
+    trainer = models.ForeignKey(TrainerProfile, on_delete=models.CASCADE, related_name="online_tests", null=True, blank=True)
     college = models.ForeignKey(CollegeProfile, on_delete=models.CASCADE, related_name="online_tests", null=True, blank=True)
     title = models.CharField(max_length=160)
     instructions = models.TextField(blank=True)

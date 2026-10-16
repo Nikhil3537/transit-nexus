@@ -2,6 +2,24 @@
 {% block title %}Assessments · Transit Nexus{% endblock %}
 {% block content %}
 {% include "portal/_college_csv_upload.html" %}
+{% if messages %}{% for message in messages %}<p class="alert-{{ message.tags }}">{{ message }}</p>{% endfor %}{% endif %}
+{% if external_form.errors %}<section class="panel alert-error"><h3>Test link not saved</h3>{{ external_form.errors }}</section>{% endif %}
+<section class="panel">
+  <div class="panel-head"><h3>Add an external test for this college</h3></div>
+  <p>Students assigned to {{ request.user.college_profile.college_name }} will see the test under Scheduled Tests during its open period.</p>
+  <form method="post" class="form-grid">
+    {% csrf_token %}<input type="hidden" name="action" value="add_external_test">
+    {% for field in external_form %}<label>{{ field.label }}{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>{% endfor %}
+    <div><button class="btn btn-primary" type="submit">Schedule Test Link</button></div>
+  </form>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>External Test Links</h3></div>
+  <table class="data-table"><thead><tr><th>Test</th><th>Opens</th><th>Closes</th><th>Test URL</th><th></th></tr></thead><tbody>
+    {% for test in linked_tests %}<tr><td>{{ test.title }}</td><td>{{ test.opens_at|date:"d M Y H:i" }}</td><td>{{ test.closes_at|date:"d M Y H:i" }}</td><td><a href="{{ test.external_url }}" target="_blank" rel="noopener">Open Testmoz link</a></td><td><form method="post" class="inline-form" onsubmit="return confirm('Remove this test link?');">{% csrf_token %}<input type="hidden" name="action" value="delete_external_test"><input type="hidden" name="test_id" value="{{ test.pk }}"><button class="btn btn-danger" type="submit">Delete</button></form></td></tr>
+    {% empty %}<tr><td colspan="5">No external test links yet.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
 <section class="panel">
   <div class="panel-head"><h3>{% if edit_record %}Update Assessment{% else %}Add Assessment{% endif %}</h3></div>
   <form method="post" class="form-grid">

@@ -12,7 +12,7 @@
           {% if test.external_url and now >= test.opens_at and now < test.closes_at %}
             <div><a href="{{ test.external_url }}" target="_blank" rel="noopener">Open Testmoz assessment</a></div>
           {% endif %}
-        </td><td>{{ test.trainer.user.get_full_name|default:test.trainer.user.username }}</td><td>{{ test.opens_at|date:"d M Y H:i" }}</td><td>{{ test.closes_at|date:"d M Y H:i" }}</td><td>{{ test.duration_minutes }} min</td>
+        </td><td>{% if test.trainer %}{{ test.trainer.user.get_full_name|default:test.trainer.user.username }}{% else %}College{% endif %}</td><td>{{ test.opens_at|date:"d M Y H:i" }}</td><td>{{ test.closes_at|date:"d M Y H:i" }}</td><td>{{ test.duration_minutes }} min</td>
         <td>{% if now >= test.closes_at %}{% if test.external_url %}Closed{% elif attempt and attempt.status == "submitted" %}{% if attempt.pending_manual_review %}Submitted · written answers under review{% else %}{{ attempt.score }} / {{ attempt.possible_points }}{% endif %}{% else %}Closed{% endif %}{% elif now < test.opens_at %}Scheduled{% elif test.external_url %}External assessment open{% elif attempt and attempt.status == "submitted" %}Submitted · results after close{% else %}Available{% endif %}</td>
         <td>
           {% if test.external_url and now >= test.opens_at and now < test.closes_at %}
