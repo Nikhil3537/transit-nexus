@@ -92,6 +92,14 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
+### Password reset
+
+The login page includes a **Forgot your password?** link. Users enter the
+email address saved on their account, receive a time-limited reset link, and
+choose a new password from that link. Configure `EMAIL_HOST_PASSWORD` with a
+Gmail app password (or use another SMTP provider) before testing email
+delivery; the related settings are listed in `.env.example`.
+
 If `POSTGRES_DB` is not set, the project uses the local SQLite database. Create
 the PostgreSQL database first with `CREATE DATABASE transit_nexus;`, then run
 the migration and seed commands above.
