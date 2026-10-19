@@ -103,7 +103,16 @@ class AdminScheduleItem(models.Model):
 # =========================================================
 
 class CollegeProfile(models.Model):
+    ACCOUNT_ROLE_CHOICES = [
+        ("college_admin", "College Admin"),
+        ("principal", "Principal"),
+        ("placement", "Placement Department"),
+        ("hod", "Head of Department"),
+    ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="college_profile")
+    workspace = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="role_accounts", help_text="The shared college workspace for this account.")
+    account_role = models.CharField(max_length=20, choices=ACCOUNT_ROLE_CHOICES, default="college_admin")
+    department_scope = models.CharField(max_length=150, blank=True)
     college_name = models.CharField(max_length=150, default="ABC Engineering College")
     location = models.CharField(max_length=150, default="Bengaluru, Karnataka")
     academic_year = models.CharField(max_length=20, default="2024 - 2025")

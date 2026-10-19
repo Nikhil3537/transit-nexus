@@ -47,6 +47,19 @@
   </form>
 </section>
 
+<section class="panel" style="margin-top: 1rem;">
+  <div class="panel-head"><h3>Create College Leadership Login</h3><span class="muted">Principal and Placement accounts see all students; HOD accounts see one department</span></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}<input type="hidden" name="action" value="create">
+    <label>Account type<select name="role" required><option value="principal">Principal</option><option value="placement">Placement Department</option><option value="hod">Head of Department (HOD)</option></select></label>
+    <label>College <span class="muted">(existing college)</span><select name="college_name" required><option value="">Select college</option>{% for college in college_options %}<option value="{{ college }}">{{ college }}</option>{% endfor %}</select></label>
+    <label>Department <span class="muted">(HOD only)</span><input name="department" placeholder="e.g. Computer Science and Engineering"></label>
+    <label>Username<input name="username" required></label><label>Temporary password<input name="password" type="password" required></label>
+    <label>First name<input name="first_name"></label><label>Last name<input name="last_name"></label><label>Email<input name="email" type="email"></label>
+    <div><button class="btn btn-primary" type="submit">Create College Login</button></div>
+  </form>
+</section>
+
 <section class="grid-2" style="margin-top: 1rem;">
   <section id="student-form" class="panel">
     <div class="panel-head"><h3>Create Student</h3><span class="muted">Assigned to one exact college</span></div>

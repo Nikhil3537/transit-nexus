@@ -1,5 +1,5 @@
 {% extends "portal/_page_base.html" %}
-{% block title %}Faculty Performance · Transit Nexus{% endblock %}
+{% block title %}Trainer Performance · Transit Nexus{% endblock %}
 {% block content %}
 {% include "portal/_college_csv_upload.html" %}
 <section class="panel">
@@ -12,16 +12,16 @@
   {% empty %}<p class="muted">No syllabus coverage has been entered yet.</p>{% endfor %}
 </section>
 <section class="panel">
-  <div class="panel-head"><h3>{% if edit_record %}Update Faculty Record{% else %}Add Faculty Record{% endif %}</h3></div>
+  <div class="panel-head"><h3>{% if edit_record %}Update Trainer Record{% else %}Add Trainer Record{% endif %}</h3></div>
   <form method="post" class="form-grid">
     {% csrf_token %}
     {% if edit_record %}<input type="hidden" name="record_id" value="{{ edit_record.pk }}">{% endif %}
     {% for field in record_form %}<label>{{ field.label }}{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>{% endfor %}
-    <div><button class="btn btn-primary" type="submit">{% if edit_record %}Save Changes{% else %}Add Faculty{% endif %}</button>{% if edit_record %} <a class="btn btn-secondary" href="{% url 'college_faculty' %}">Cancel</a>{% endif %}</div>
+    <div><button class="btn btn-primary" type="submit">{% if edit_record %}Save Changes{% else %}Add Trainer{% endif %}</button>{% if edit_record %} <a class="btn btn-secondary" href="{% url 'college_faculty' %}">Cancel</a>{% endif %}</div>
   </form>
 </section>
 <section class="panel">
-  <div class="panel-head"><h3>Faculty</h3></div>
+  <div class="panel-head"><h3>Trainer Performance</h3></div>
   <table class="data-table">
     <thead><tr><th>Name</th><th>Department</th><th>Rating</th><th>Classes Taken</th><th>Actions</th></tr></thead>
     <tbody>

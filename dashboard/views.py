@@ -32,6 +32,21 @@ DEFAULT_DEPARTMENT_NAMES = [
     if value != "__custom__"
 ]
 
+REGISTRATION_DEPARTMENT_ALIASES = {
+    "Arts and Commerce": "Arts & Commerce",
+    "Architecture and Design": "Architecture & Design",
+    "Allied Health Sciences": "Allied Health Science",
+}
+REGISTRATION_CATEGORY_NAMES = {
+    "Engineering",
+    "Arts & Commerce",
+    "Pharmacy",
+    "Allied Health Science",
+    "Architecture & Design",
+    "Nursing",
+    "Management",
+}
+
 
 def _redirect_for_role(user):
     """Send each authenticated user to the dashboard matching their role."""
@@ -54,7 +69,7 @@ def _redirect_for_role(user):
 
     # STUDENT
     if hasattr(user, "profile"):
-        return redirect("dashboard")
+        return redirect("student_colleges")
 
     # UNKNOWN ROLE
     return redirect("login")
@@ -87,6 +102,7 @@ def student_register_view(request):
         CollegeProfile.objects.select_related("user").prefetch_related("departments").filter(
             user__admin_profile__isnull=True,
             user__is_staff=False,
+            workspace__isnull=True,
             user__is_active=True,
         ).order_by("college_name", "pk")
     )
@@ -114,6 +130,7 @@ def student_register_view(request):
         # with just (for example) Architecture saved only exposes that single
         # department on the public registration form.
         department_names.update(DEFAULT_DEPARTMENT_NAMES)
+        department_names.update(REGISTRATION_CATEGORY_NAMES)
         departments_by_college[str(college.pk)] = sorted(department_names, key=str.casefold)
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
@@ -122,8 +139,12 @@ def student_register_view(request):
         last_name = request.POST.get("last_name", "").strip()
         email = request.POST.get("email", "").strip()
         college_id = request.POST.get("college_id", "").strip()
-        department_name = request.POST.get("department_name", "").strip()
+        college_name = request.POST.get("college_name", "").strip()
+        department_name = request.POST.get("department_name", request.POST.get("department", "")).strip()
+        department_name = REGISTRATION_DEPARTMENT_ALIASES.get(department_name, department_name)
         college = next((item for item in colleges if str(item.pk) == college_id), None)
+        if college is None and college_name:
+            college = next((item for item in colleges if item.college_name.casefold() == college_name.casefold()), None)
         valid_department_names = departments_by_college.get(str(college.pk), []) if college else []
 
         if not username or not password:

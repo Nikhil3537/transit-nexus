@@ -55,7 +55,7 @@ COLLEGE_NAV = [
     ("fa-solid fa-file-invoice-dollar", "Payments", "college_payments"),
     ("fa-solid fa-briefcase", "Placements", "college_placements"),
     ("fa-solid fa-chart-line", "Reports & Analytics", "college_reports"),
-    ("fa-solid fa-chalkboard-teacher", "Faculty Performance", "college_faculty"),
+    ("fa-solid fa-chalkboard-teacher", "Trainer Performance", "college_faculty"),
     ("fa-solid fa-book-open", "Syllabus Coverage", "college_syllabus"),
     ("fa-regular fa-bell", "Notifications", "college_notifications"),
     ("fa-solid fa-gear", "Settings", "college_settings"),
@@ -130,6 +130,26 @@ def college_account_required(view_func):
     return wrapped
 
 
+def _college_workspace(request):
+    account = request.user.college_profile
+    return account.workspace or account
+
+
+def _college_account(request):
+    return request.user.college_profile
+
+
+def _college_department_scope(request):
+    account = _college_account(request)
+    if account.account_role != "hod":
+        return ""
+    return _canonical_department_name(account.department_scope)
+
+
+def _college_role_label(request):
+    return dict(CollegeProfile.ACCOUNT_ROLE_CHOICES).get(_college_account(request).account_role, "College Admin")
+
+
 def trainer_account_required(view_func):
     @login_required
     @wraps(view_func)
@@ -174,6 +194,7 @@ def admin_dashboard(request):
     colleges = []
     for college in CollegeProfile.objects.select_related("user").filter(
         user__admin_profile__isnull=True, user__is_staff=False,
+        workspace__isnull=True,
     ):
         partner = partner_by_name.get(college.college_name.casefold())
         colleges.append({
@@ -263,6 +284,8 @@ PREFERRED_DEPARTMENT_ORDER = [
 
 DEPARTMENT_ALIASES = {
     "Engineering": {"Engineering", "ENG"},
+    "Computer Science and Engineering": {"Computer Science and Engineering", "CSE", "Computer Science"},
+    "Electronics and Communication Engineering": {"Electronics and Communication Engineering", "ECE", "Electronics and Communication"},
     "Arts & Commerce": {"Arts & Commerce", "Arts and Commerce", "Commerce"},
     "Pharmacy": {"Pharmacy", "Pharmcy", "B.Pharm"},
     "Allied Health Science": {"Allied Health Science", "Allied Health Sciences"},
@@ -334,6 +357,23 @@ def _unmatched_admin_student_records(profile):
     return [record for records in records_by_name.values() for record in records]
 
 
+def _dedupe_student_rows(rows):
+    """Keep one display row when the same student exists in multiple sources."""
+    unique_rows = []
+    seen = set()
+    for row in rows:
+        key = (
+            row["college_name"].strip().casefold(),
+            row["name"].strip().casefold(),
+            row["department"].strip().casefold(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_rows.append(row)
+    return unique_rows
+
+
 def _department_summary_rows(profile):
     summary = {}
     admin_records_by_name = _admin_student_records_by_name(profile)
@@ -398,12 +438,15 @@ def _department_summary_rows(profile):
             entry["attendance_classes"] += attendance.total_classes
         entry["live_assessments"] += student.assessments.count()
 
-    for records in admin_records_by_name.values():
-        for record in records:
-            department_name = _canonical_department_name(record.department) or "Unassigned"
-            entry = get_entry(department_name)
-            entry["live_students"] += 1
-            entry["performance_values"].append(float(record.performance_pct or 0))
+    # Admin records are a fallback for imported students. Once a live student
+    # account exists, unmatched records must not create phantom departments.
+    if not profile.student_accounts.exists():
+        for records in admin_records_by_name.values():
+            for record in records:
+                department_name = _canonical_department_name(record.department) or "Unassigned"
+                entry = get_entry(department_name)
+                entry["live_students"] += 1
+                entry["performance_values"].append(float(record.performance_pct or 0))
 
     for student in profile.students.all():
         department_name = _canonical_department_name(student.department)
@@ -449,14 +492,18 @@ def _department_summary_rows(profile):
 
 @college_account_required
 def college_dashboard(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     departments = _department_summary_rows(profile)
+    department_scope = _college_department_scope(request)
+    if department_scope:
+        departments = [d for d in departments if _canonical_department_name(d.name) == department_scope]
 
-    tracked_students = (
-        profile.student_accounts.count()
-        + profile.students.count()
-        + len(_unmatched_admin_student_records(profile))
-    )
+    scoped_accounts = profile.student_accounts.filter(department__iexact=department_scope) if department_scope else profile.student_accounts
+    scoped_students = profile.students.filter(department__iexact=department_scope) if department_scope else profile.students
+    scoped_records = _unmatched_admin_student_records(profile)
+    if department_scope:
+        scoped_records = [record for record in scoped_records if _canonical_department_name(record.department) == department_scope]
+    tracked_students = scoped_accounts.count() + scoped_students.count() + len(scoped_records)
     total_students = tracked_students or sum(d.total_students for d in departments)
     if departments:
         avg_performance = round(sum(float(d.avg_performance) * d.total_students for d in departments) / total_students, 1) if total_students else 0
@@ -497,7 +544,7 @@ def college_dashboard(request):
         "profile": profile,
         "page_title": f"{profile.college_name} — Dashboard",
         "page_subtitle": f"Academic Year: {profile.academic_year}",
-        "user_role_label": "College Admin",
+        "user_role_label": _college_role_label(request),
         **_nav_context(COLLEGE_NAV, "Dashboard", "TRANSIT NEXUS", "LEARN · ASSESS · GROW"),
         "departments": departments,
         "total_students": total_students,
@@ -595,6 +642,7 @@ def admin_colleges(request):
     colleges = []
     profiles = CollegeProfile.objects.select_related("user").filter(
         user__admin_profile__isnull=True, user__is_staff=False,
+        workspace__isnull=True,
     )
     for college in profiles:
         partner = partner_by_name.get(college.college_name.casefold())
@@ -622,6 +670,7 @@ def admin_college_detail(request, college_id):
     college = get_object_or_404(
         CollegeProfile.objects.select_related("user").filter(
             user__admin_profile__isnull=True, user__is_staff=False,
+            workspace__isnull=True,
         ),
         pk=college_id,
     )
@@ -714,6 +763,15 @@ def admin_college_detail(request, college_id):
                 "attendance_pct": None,
                 "is_account": False,
             })
+    students = _dedupe_student_rows([
+        {
+            "name": student["name"],
+            "college_name": college.college_name,
+            "department": student["department"],
+            **student,
+        }
+        for student in students
+    ])
     students.sort(key=lambda row: (
         _department_sort_key(row["department"]),
         _semester_sort_key(row["semester"]),
@@ -862,6 +920,7 @@ def admin_students(request):
                 "status": "Active",
                 "has_account": False,
             })
+    student_rows = _dedupe_student_rows(student_rows)
     student_rows.sort(key=lambda row: (
         row["college_name"].casefold(), _department_sort_key(row["department"]),
         _semester_sort_key(row["semester"]), row["name"].casefold(),
@@ -995,33 +1054,35 @@ def admin_users(request):
             password = request.POST.get("password", "")
             role = request.POST.get("role", "student")
             college_name = request.POST.get("college_name", "").strip()
+            department = request.POST.get("department", "").strip()
+            canonical_department = _canonical_department_name(department)
+            allowed_departments = set(PREFERRED_DEPARTMENT_ORDER) | set(DEPARTMENT_ALIASES)
             if not username or not password:
                 messages.error(request, "Username and password are required.")
             elif role == "college" and not college_name:
                 messages.error(request, "College name is required for a College account.")
-            elif role == "college" and CollegeProfile.objects.filter(college_name__iexact=college_name).exists():
+            elif role == "college" and CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).exists():
                 messages.error(request, "A college account with that college name already exists.")
-            elif role in {"student", "trainer"} and not college_name:
+            elif role in {"student", "trainer", "principal", "placement", "hod"} and not college_name:
                 messages.error(request, "College name is required for a Student or Trainer account.")
             elif role == "student" and not request.POST.get("department", "").strip():
                 messages.error(request, "Department is required for a Student account.")
-            elif role == "student" and not CollegeProfile.objects.filter(college_name__iexact=college_name).exists():
+            elif role == "student" and not CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).exists():
                 messages.error(request, "Create the college account before creating its student accounts.")
-            elif role == "student":
-                department = request.POST.get("department", "").strip()
-                canonical_department = _canonical_department_name(department)
-                allowed_departments = set(PREFERRED_DEPARTMENT_ORDER)
-                if canonical_department not in allowed_departments:
-                    messages.error(request, "Choose a valid department for the student account.")
-                    return redirect("admin_users")
-            elif role == "trainer" and not CollegeProfile.objects.filter(college_name__iexact=college_name).exists():
+            elif role == "student" and canonical_department not in allowed_departments:
+                messages.error(request, "Choose a valid department for the student account.")
+            elif role in {"trainer", "principal", "placement", "hod"} and not CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).exists():
                 messages.error(request, "Create the college account before creating its trainer accounts.")
+            elif role == "hod" and not request.POST.get("department", "").strip():
+                messages.error(request, "Department is required for an HOD account.")
             elif User.objects.filter(username=username).exists():
                 messages.error(request, f"Username '{username}' already exists.")
             else:
-                student_college = CollegeProfile.objects.filter(college_name__iexact=college_name).first() if role == "student" else None
-                trainer_college = CollegeProfile.objects.filter(college_name__iexact=college_name).first() if role == "trainer" else None
-                student_department = canonical_department if role == "student" else ""
+                student_college = CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).first() if role == "student" else None
+                trainer_college = CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).first() if role == "trainer" else None
+                # Preserve the department entered by an administrator while
+                # using the canonical value only for validation and grouping.
+                student_department = department if role == "student" else ""
                 user = User.objects.create_user(
                     username=username,
                     password=password,
@@ -1045,6 +1106,14 @@ def admin_users(request):
                     PartnerCollege.objects.get_or_create(name=college_name)
                 elif role == "trainer":
                     TrainerProfile.objects.create(user=user, college=trainer_college)
+                elif role in {"principal", "placement", "hod"}:
+                    college = CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).first()
+                    CollegeProfile.objects.create(
+                        user=user, workspace=college, account_role=role,
+                        department_scope=request.POST.get("department", "").strip() if role == "hod" else "",
+                        college_name=college.college_name, location=college.location,
+                        academic_year=college.academic_year, semester_label=college.semester_label,
+                    )
                 elif role == "company":
                     CompanyProfile.objects.create(user=user, company_name=user.get_full_name() or username)
                 elif role == "student":
@@ -1086,7 +1155,7 @@ def admin_users(request):
             role = "Super Admin"
             normalized_role = "admin"
         elif hasattr(u, "college_profile"):
-            role = "College Admin"
+            role = dict(CollegeProfile.ACCOUNT_ROLE_CHOICES).get(u.college_profile.account_role, "College Admin")
             normalized_role = "college"
         elif hasattr(u, "trainer_profile"):
             role = "Trainer"
@@ -1492,7 +1561,7 @@ def college_csv_upload(request, dataset):
                 messages.error(request, error)
             return redirect(COLLEGE_UPLOAD_PAGE[dataset])
 
-        profile = request.user.college_profile
+        profile = _college_workspace(request)
         with transaction.atomic():
             for form, _ in prepared:
                 record = form.save(commit=False)
@@ -1509,17 +1578,20 @@ def college_csv_upload(request, dataset):
 
 @college_account_required
 def college_departments(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     departments = _department_summary_rows(profile)
     ctx = _page_ctx(profile, COLLEGE_NAV, "Department Overview", "Department Overview",
                     f"{len(departments)} departments", "College Admin", departments=departments)
     return render(request, "portal/college_departments.html", ctx)
 
 
-def _college_student_rows(profile):
+def _college_student_rows(profile, department_scope=""):
     rows = []
     admin_records_by_name = _admin_student_records_by_name(profile)
-    for student in StudentProfile.objects.select_related("user").filter(college=profile).order_by("user__first_name", "user__last_name", "user__username"):
+    student_accounts = StudentProfile.objects.select_related("user").filter(college=profile)
+    if department_scope:
+        student_accounts = student_accounts.filter(department__iexact=department_scope)
+    for student in student_accounts.order_by("user__first_name", "user__last_name", "user__username"):
         student_name = (student.user.get_full_name() or student.user.username).strip().casefold()
         matching_records = admin_records_by_name.get(student_name, [])
         matching_record = matching_records.pop(0) if matching_records else None
@@ -1536,7 +1608,10 @@ def _college_student_rows(profile):
             "username": student.user.username,
             "email": student.user.email or "—",
         })
-    for record in profile.students.all():
+    manual_students = profile.students.all()
+    if department_scope:
+        manual_students = manual_students.filter(department__iexact=department_scope)
+    for record in manual_students:
         rows.append({
             "pk": record.pk,
             "name": record.name,
@@ -1552,7 +1627,7 @@ def _college_student_rows(profile):
 
 @college_account_required
 def college_students(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     account_form = CollegeStudentAccountForm()
     if request.method == "POST" and request.POST.get("action") == "create_account":
         account_form = CollegeStudentAccountForm(request.POST)
@@ -1576,7 +1651,7 @@ def college_students(request):
                 )
             messages.success(request, f"Student account '{user.username}' was created for {profile.college_name}.")
             return redirect("college_students")
-    students = _college_student_rows(profile)
+    students = _college_student_rows(profile, _college_department_scope(request))
     raw_department_options = {_canonical_department_name(student["department"]) for student in students if student["department"] != "—" and student["department"]}
     department_options = sorted(raw_department_options, key=_department_sort_key)
     selected_department = _canonical_department_name(request.GET.get("department", "").strip())
@@ -1604,7 +1679,7 @@ def college_students(request):
 
 @college_account_required
 def college_assessments(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     assessments = profile.assessments.all()
     linked_tests = profile.online_tests.filter(external_url__gt="", trainer__isnull=True).all()
     external_form = CollegeExternalTestForm()
@@ -1650,7 +1725,7 @@ def college_assessments(request):
 
 @college_account_required
 def college_attendance(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     departments = _department_summary_rows(profile)
     management = _college_record_context(request, profile, Department, DepartmentAttendanceForm, "college_attendance")
     if not isinstance(management, dict):
@@ -1668,7 +1743,7 @@ def college_attendance(request):
 
 @college_account_required
 def college_programs(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     programs = profile.programs.all()
     edit_program = programs.filter(pk=request.GET.get("edit")).first() if request.GET.get("edit") else None
     form_values = {
@@ -1723,7 +1798,7 @@ def college_programs(request):
 
 @college_account_required
 def college_payments(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     invoices = AdminInvoice.objects.filter(college_name__iexact=profile.college_name).order_by("-issued_date")
     record_id = request.POST.get("record_id", "").strip() if request.method == "POST" else request.GET.get("edit", "")
     edit_invoice = invoices.filter(pk=record_id).first() if record_id else None
@@ -1753,7 +1828,7 @@ def college_payments(request):
 
 @college_account_required
 def college_placements(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     placements = profile.placements.all()
     management = _college_record_context(request, profile, PlacementRecord, PlacementRecordForm, "college_placements")
     if not isinstance(management, dict):
@@ -1768,7 +1843,7 @@ def college_placements(request):
 
 @college_account_required
 def college_reports(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     quick_reports = profile.quick_reports.all()
     management = _college_record_context(request, profile, CollegeQuickReport, CollegeQuickReportForm, "college_reports")
     if not isinstance(management, dict):
@@ -1781,21 +1856,21 @@ def college_reports(request):
 
 @college_account_required
 def college_faculty(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     faculty = profile.faculty.all()
     syllabus_coverage = profile.syllabus_coverage.all()
     management = _college_record_context(request, profile, Faculty, FacultyForm, "college_faculty")
     if not isinstance(management, dict):
         return management
-    ctx = _page_ctx(profile, COLLEGE_NAV, "Faculty Performance", "Faculty Performance",
-                    f"{faculty.count()} faculty members", "College Admin", faculty=faculty,
+    ctx = _page_ctx(profile, COLLEGE_NAV, "Trainer Performance", "Trainer Performance",
+                    f"{faculty.count()} trainers", _college_role_label(request), faculty=faculty,
                     syllabus_coverage=syllabus_coverage, csv_dataset="faculty", **management)
     return render(request, "portal/college_faculty.html", ctx)
 
 
 @college_account_required
 def college_syllabus(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     coverage = profile.syllabus_coverage.all()
     management = _college_record_context(request, profile, SyllabusCoverage, SyllabusCoverageForm, "college_syllabus")
     if not isinstance(management, dict):
@@ -1808,7 +1883,7 @@ def college_syllabus(request):
 
 @college_account_required
 def college_notifications(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     notifications = profile.notifications.all()
     notifications.filter(is_read=False).update(is_read=True)
     ctx = _page_ctx(profile, COLLEGE_NAV, "Notifications", "Notifications",
@@ -1818,7 +1893,7 @@ def college_notifications(request):
 
 @college_account_required
 def college_settings(request):
-    profile = request.user.college_profile
+    profile = _college_workspace(request)
     if request.method == "POST":
         profile.college_name = request.POST.get("college_name", profile.college_name).strip()
         profile.location = request.POST.get("location", profile.location).strip()
@@ -1859,7 +1934,7 @@ def trainer_assessments(request):
     profile = request.user.trainer_profile
     assessments = profile.assessments.all()
     tests = profile.online_tests.all()
-    colleges = CollegeProfile.objects.filter(user__admin_profile__isnull=True, user__is_staff=False)
+    colleges = CollegeProfile.objects.filter(user__admin_profile__isnull=True, user__is_staff=False, workspace__isnull=True)
     schedule_form = OnlineTestForm()
     schedule_form.fields["college"].queryset = colleges
     errors = []

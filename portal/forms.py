@@ -198,7 +198,7 @@ class CollegeProgramForm(forms.ModelForm):
 
 
 class DepartmentAttendanceForm(forms.ModelForm):
-    name = forms.ChoiceField(choices=ACADEMIC_PROGRAMME_CHOICES, label="Academic programme or department")
+    name = forms.CharField(max_length=150, label="Academic programme or department")
     custom_department = forms.CharField(
         max_length=150,
         required=False,
