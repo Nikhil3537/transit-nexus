@@ -31,7 +31,7 @@ from .forms import (
     CollegeInvoiceForm, CollegeQuickReportForm, CollegeStudentAccountForm, CollegeStudentForm,
     DepartmentAttendanceForm, FacultyForm, OnlineTestForm, PlacementRecordForm, SyllabusCoverageForm,
 )
-from dashboard.models import StudentProfile
+from dashboard.models import DailyAttendance, StudentProfile
 
 
 ADMIN_NAV = [
@@ -1726,6 +1726,32 @@ def college_assessments(request):
 @college_account_required
 def college_attendance(request):
     profile = _college_workspace(request)
+    today = timezone.localdate()
+    students = list(profile.student_accounts.select_related("user").order_by("user__first_name", "user__last_name", "user__username"))
+
+    if request.method == "POST" and request.POST.get("action") == "toggle_student_attendance":
+        student_id = request.POST.get("student_id", "")
+        student = profile.student_accounts.filter(pk=student_id).first() if student_id.isdecimal() else None
+        if student:
+            record, created = DailyAttendance.objects.get_or_create(student=student, date=today)
+            if not created:
+                record.is_present = not record.is_present
+                record.save(update_fields=["is_present"])
+            messages.success(
+                request,
+                f"{student.user.get_full_name() or student.user.username} marked "
+                f"{'present' if record.is_present else 'absent'} for today.",
+            )
+        else:
+            messages.error(request, "That student is not registered with this college.")
+        return redirect("college_attendance")
+
+    today_attendance = {
+        record.student_id: record
+        for record in DailyAttendance.objects.filter(student__in=students, date=today)
+    }
+    for student in students:
+        student.today_attendance = today_attendance.get(student.pk)
     departments = _department_summary_rows(profile)
     management = _college_record_context(request, profile, Department, DepartmentAttendanceForm, "college_attendance")
     if not isinstance(management, dict):
@@ -1736,7 +1762,8 @@ def college_attendance(request):
     trend_json = json.dumps({"labels": [t.month_label for t in trend], "values": [float(t.avg_percentage) for t in trend]})
     ctx = _page_ctx(profile, COLLEGE_NAV, "Attendance", "Attendance",
                     f"{avg_attendance}% average attendance", "College Admin",
-                    departments=departments, avg_attendance=avg_attendance, trend_json=trend_json,
+                    departments=departments, students=students, today=today,
+                    avg_attendance=avg_attendance, trend_json=trend_json,
                     csv_dataset="attendance", **management)
     return render(request, "portal/college_attendance.html", ctx)
 
