@@ -3,6 +3,21 @@
 {% block content %}
 {% include "portal/_college_csv_upload.html" %}
 <section class="panel">
+  <div class="panel-head"><h3>Choose Department</h3></div>
+  <form method="get" class="form-grid attendance-department-filter">
+    <label>Department
+      <select name="department" {% if request.user.college_profile.account_role == "hod" %}disabled{% endif %}>
+        {% for department in department_options %}
+          <option value="{{ department }}" {% if department == selected_department %}selected{% endif %}>{{ department }}</option>
+        {% empty %}
+          <option>No departments available</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if request.user.college_profile.account_role != "hod" %}<button class="btn btn-primary" type="submit">View Department</button>{% endif %}
+  </form>
+</section>
+<section class="panel">
   <div class="panel-head"><h3>{% if edit_record %}Update Department Attendance{% else %}Add Department Attendance{% endif %}</h3></div>
   <form method="post" class="form-grid">
     {% csrf_token %}
@@ -13,8 +28,8 @@
 </section>
 <section class="panel">
   <div class="panel-head">
-    <h3>Registered Student Attendance · {{ today|date:"M j, Y" }}</h3>
-    <span class="muted">Switch each student on when they attend today’s session.</span>
+    <h3>{{ selected_department|default:"Department" }} Attendance · {{ today|date:"M j, Y" }}</h3>
+    <span class="muted">Only registered students in this department are shown.</span>
   </div>
   <table class="data-table">
     <thead><tr><th>Student</th><th>Department</th><th>Attendance</th></tr></thead>
@@ -29,6 +44,7 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="toggle_student_attendance">
             <input type="hidden" name="student_id" value="{{ student.pk }}">
+            <input type="hidden" name="department" value="{{ selected_department }}">
             <button class="attendance-toggle {% if attendance and attendance.is_present %}is-on{% else %}is-off{% endif %}" type="submit" role="switch" aria-checked="{% if attendance and attendance.is_present %}true{% else %}false{% endif %}" aria-label="Toggle attendance for {{ student.user.get_full_name|default:student.user.username }}">
               <span class="attendance-toggle-track" aria-hidden="true"><span class="attendance-toggle-knob"></span></span>
               <span>{% if attendance and attendance.is_present %}Present{% else %}Absent{% endif %}</span>

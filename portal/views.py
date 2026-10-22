@@ -1727,7 +1727,31 @@ def college_assessments(request):
 def college_attendance(request):
     profile = _college_workspace(request)
     today = timezone.localdate()
-    students = list(profile.student_accounts.select_related("user").order_by("user__first_name", "user__last_name", "user__username"))
+    department_scope = _college_department_scope(request)
+    all_departments = _department_summary_rows(profile)
+    department_names = sorted(
+        {_canonical_department_name(department.name) for department in all_departments if department.name},
+        key=_department_sort_key,
+    )
+    department_names.extend(sorted(
+        {
+            _canonical_department_name(student.department)
+            for student in profile.student_accounts.all()
+            if student.department and _canonical_department_name(student.department) not in department_names
+        },
+        key=_department_sort_key,
+    ))
+    selected_department = department_scope or request.GET.get("department", "").strip()
+    selected_department = _canonical_department_name(selected_department) if selected_department else ""
+    if not selected_department and department_names:
+        selected_department = department_names[0]
+    if selected_department not in department_names and selected_department != department_scope:
+        selected_department = department_scope or (department_names[0] if department_names else "")
+
+    students_query = profile.student_accounts.select_related("user")
+    if selected_department:
+        students_query = students_query.filter(department__iexact=selected_department)
+    students = list(students_query.order_by("user__first_name", "user__last_name", "user__username"))
 
     if request.method == "POST" and request.POST.get("action") == "toggle_student_attendance":
         student_id = request.POST.get("student_id", "")
@@ -1744,7 +1768,10 @@ def college_attendance(request):
             )
         else:
             messages.error(request, "That student is not registered with this college.")
-        return redirect("college_attendance")
+        redirect_url = reverse("college_attendance")
+        if selected_department:
+            redirect_url = f"{redirect_url}?department={selected_department}"
+        return redirect(redirect_url)
 
     today_attendance = {
         record.student_id: record
@@ -1752,7 +1779,10 @@ def college_attendance(request):
     }
     for student in students:
         student.today_attendance = today_attendance.get(student.pk)
-    departments = _department_summary_rows(profile)
+    departments = [
+        department for department in all_departments
+        if not selected_department or _canonical_department_name(department.name) == selected_department
+    ]
     management = _college_record_context(request, profile, Department, DepartmentAttendanceForm, "college_attendance")
     if not isinstance(management, dict):
         return management
@@ -1761,8 +1791,9 @@ def college_attendance(request):
     trend = profile.trend_points.all()
     trend_json = json.dumps({"labels": [t.month_label for t in trend], "values": [float(t.avg_percentage) for t in trend]})
     ctx = _page_ctx(profile, COLLEGE_NAV, "Attendance", "Attendance",
-                    f"{avg_attendance}% average attendance", "College Admin",
+                    f"{selected_department or 'Department'} attendance", _college_role_label(request),
                     departments=departments, students=students, today=today,
+                    department_options=department_names, selected_department=selected_department,
                     avg_attendance=avg_attendance, trend_json=trend_json,
                     csv_dataset="attendance", **management)
     return render(request, "portal/college_attendance.html", ctx)
