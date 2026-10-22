@@ -20,6 +20,7 @@ from .models import (
     CalendarEvent,
     Payment,
     Skill,
+    DailyAttendance,
 )
 from portal.models import AdminStudentRecord, CollegeProfile, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
 from portal.forms import ACADEMIC_PROGRAMME_CHOICES
@@ -219,21 +220,22 @@ def student_dashboard(request):
     colleges = [profile.college] if profile.college else []
     enrollments = profile.enrollments.select_related("course").all()
     attendance_records = list(profile.attendance_records.all())
+    session_attendance = list(profile.daily_attendance.all())
     assessments = list(profile.assessments.all())
     strengths = profile.strengths.all()
     improvements = profile.improvement_areas.all()
     activities = profile.activities.all()[:6]
 
     # ---- Attendance summary ----
-    total_classes = sum(a.total_classes for a in attendance_records)
-    total_present = sum(a.present for a in attendance_records)
-    total_absent = sum(a.absent for a in attendance_records)
+    total_classes = len(session_attendance) if session_attendance else sum(a.total_classes for a in attendance_records)
+    total_present = sum(1 for a in session_attendance if a.is_present) if session_attendance else sum(a.present for a in attendance_records)
+    total_absent = sum(1 for a in session_attendance if not a.is_present) if session_attendance else sum(a.absent for a in attendance_records)
     total_late = sum(a.late for a in attendance_records)
     overall_attendance = round((total_present / total_classes) * 100) if total_classes else 0
 
     attendance_trend = {
-        "labels": [a.month_label for a in attendance_records],
-        "values": [a.percentage for a in attendance_records],
+        "labels": [a.date.strftime("%d %b") for a in reversed(session_attendance)] if session_attendance else [a.month_label for a in attendance_records],
+        "values": [round(sum(1 for item in session_attendance[:index + 1] if item.is_present) / (index + 1) * 100) for index in range(len(session_attendance))] if session_attendance else [a.percentage for a in attendance_records],
     }
 
     # ---- Assessment summary ----
@@ -359,15 +361,16 @@ def live_classes_view(request):
 def attendance_view(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
     records = list(profile.attendance_records.all())
-    total_classes = sum(a.total_classes for a in records)
-    total_present = sum(a.present for a in records)
-    total_absent = sum(a.absent for a in records)
+    session_records = list(profile.daily_attendance.all())
+    total_classes = len(session_records) if session_records else sum(a.total_classes for a in records)
+    total_present = sum(1 for a in session_records if a.is_present) if session_records else sum(a.present for a in records)
+    total_absent = sum(1 for a in session_records if not a.is_present) if session_records else sum(a.absent for a in records)
     total_late = sum(a.late for a in records)
     overall_attendance = round((total_present / total_classes) * 100) if total_classes else 0
 
     trend = {
-        "labels": [a.month_label for a in records],
-        "values": [a.percentage for a in records],
+        "labels": [a.date.strftime("%d %b") for a in reversed(session_records)] if session_records else [a.month_label for a in records],
+        "values": [round(sum(1 for item in session_records[:index + 1] if item.is_present) / (index + 1) * 100) for index in range(len(session_records))] if session_records else [a.percentage for a in records],
     }
 
     context = {
@@ -376,6 +379,7 @@ def attendance_view(request):
         "page_title": "My Attendance",
         "page_subtitle": "Track your attendance across all courses",
         "records": records,
+        "session_records": session_records,
         "total_classes": total_classes,
         "total_present": total_present,
         "total_absent": total_absent,

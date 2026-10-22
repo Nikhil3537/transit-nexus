@@ -14,6 +14,12 @@
         {% endfor %}
       </select>
     </label>
+    <label>Session date
+      <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+    </label>
+    <label>Session name
+      <input type="text" name="session" value="{{ selected_session }}" placeholder="e.g. Python Basics">
+    </label>
     {% if request.user.college_profile.account_role != "hod" %}<button class="btn btn-primary" type="submit">View Department</button>{% endif %}
   </form>
 </section>
@@ -28,8 +34,8 @@
 </section>
 <section class="panel">
   <div class="panel-head">
-    <h3>{{ selected_department|default:"Department" }} Attendance · {{ today|date:"M j, Y" }}</h3>
-    <span class="muted">Only registered students in this department are shown.</span>
+    <h3>{{ selected_department|default:"Department" }} Attendance · {{ selected_date|date:"M j, Y" }}</h3>
+    <span class="muted">Session: {{ selected_session }} · Only this department is shown.</span>
   </div>
   <table class="data-table">
     <thead><tr><th>Student</th><th>Department</th><th>Attendance</th></tr></thead>
@@ -45,6 +51,8 @@
             <input type="hidden" name="action" value="toggle_student_attendance">
             <input type="hidden" name="student_id" value="{{ student.pk }}">
             <input type="hidden" name="department" value="{{ selected_department }}">
+            <input type="hidden" name="attendance_date" value="{{ selected_date|date:'Y-m-d' }}">
+            <input type="hidden" name="session_name" value="{{ selected_session }}">
             <button class="attendance-toggle {% if attendance and attendance.is_present %}is-on{% else %}is-off{% endif %}" type="submit" role="switch" aria-checked="{% if attendance and attendance.is_present %}true{% else %}false{% endif %}" aria-label="Toggle attendance for {{ student.user.get_full_name|default:student.user.username }}">
               <span class="attendance-toggle-track" aria-hidden="true"><span class="attendance-toggle-knob"></span></span>
               <span>{% if attendance and attendance.is_present %}Present{% else %}Absent{% endif %}</span>

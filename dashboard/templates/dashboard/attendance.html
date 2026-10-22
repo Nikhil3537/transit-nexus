@@ -47,6 +47,23 @@
     </table>
   </div>
 </section>
+<section class="panel">
+  <div class="panel-head"><h3>Session Attendance</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Date</th><th>Session</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for session in session_records %}
+      <tr>
+        <td>{{ session.date|date:"d M Y" }}</td>
+        <td>{{ session.session_name }}</td>
+        <td><span class="tag {% if session.is_present %}tag-good{% else %}tag-bad{% endif %}">{% if session.is_present %}Present{% else %}Absent{% endif %}</span></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3">No session attendance has been recorded yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
 {% endblock %}
 
 {% block page_scripts %}

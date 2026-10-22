@@ -1726,7 +1726,12 @@ def college_assessments(request):
 @college_account_required
 def college_attendance(request):
     profile = _college_workspace(request)
-    today = timezone.localdate()
+    selected_date_value = request.POST.get("attendance_date") or request.GET.get("date", "")
+    try:
+        selected_date = date.fromisoformat(selected_date_value) if selected_date_value else timezone.localdate()
+    except ValueError:
+        selected_date = timezone.localdate()
+    selected_session = (request.POST.get("session_name") or request.GET.get("session", "")).strip() or "General Session"
     department_scope = _college_department_scope(request)
     all_departments = _department_summary_rows(profile)
     department_names = sorted(
@@ -1757,25 +1762,27 @@ def college_attendance(request):
         student_id = request.POST.get("student_id", "")
         student = profile.student_accounts.filter(pk=student_id).first() if student_id.isdecimal() else None
         if student:
-            record, created = DailyAttendance.objects.get_or_create(student=student, date=today)
+            record, created = DailyAttendance.objects.get_or_create(
+                student=student, date=selected_date, session_name=selected_session,
+            )
             if not created:
                 record.is_present = not record.is_present
                 record.save(update_fields=["is_present"])
             messages.success(
                 request,
                 f"{student.user.get_full_name() or student.user.username} marked "
-                f"{'present' if record.is_present else 'absent'} for today.",
+                f"{'present' if record.is_present else 'absent'} for {selected_date:%d %b %Y} ({selected_session}).",
             )
         else:
             messages.error(request, "That student is not registered with this college.")
         redirect_url = reverse("college_attendance")
         if selected_department:
-            redirect_url = f"{redirect_url}?department={selected_department}"
+            redirect_url = f"{redirect_url}?department={selected_department}&date={selected_date:%Y-%m-%d}&session={selected_session}"
         return redirect(redirect_url)
 
     today_attendance = {
         record.student_id: record
-        for record in DailyAttendance.objects.filter(student__in=students, date=today)
+        for record in DailyAttendance.objects.filter(student__in=students, date=selected_date, session_name=selected_session)
     }
     for student in students:
         student.today_attendance = today_attendance.get(student.pk)
@@ -1792,7 +1799,8 @@ def college_attendance(request):
     trend_json = json.dumps({"labels": [t.month_label for t in trend], "values": [float(t.avg_percentage) for t in trend]})
     ctx = _page_ctx(profile, COLLEGE_NAV, "Attendance", "Attendance",
                     f"{selected_department or 'Department'} attendance", _college_role_label(request),
-                    departments=departments, students=students, today=today,
+                    departments=departments, students=students, today=selected_date,
+                    selected_date=selected_date, selected_session=selected_session,
                     department_options=department_names, selected_department=selected_department,
                     avg_attendance=avg_attendance, trend_json=trend_json,
                     csv_dataset="attendance", **management)

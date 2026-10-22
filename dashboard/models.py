@@ -74,12 +74,13 @@ class AttendanceRecord(models.Model):
 class DailyAttendance(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name="daily_attendance")
     date = models.DateField()
+    session_name = models.CharField(max_length=150, default="General Session")
     is_present = models.BooleanField(default=True)
     marked_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-date"]
-        constraints = [models.UniqueConstraint(fields=["student", "date"], name="unique_student_daily_attendance")]
+        constraints = [models.UniqueConstraint(fields=["student", "date", "session_name"], name="unique_student_session_attendance")]
 
 
 class Assessment(models.Model):
