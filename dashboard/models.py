@@ -71,6 +71,17 @@ class AttendanceRecord(models.Model):
         return round((self.present / self.total_classes) * 100)
 
 
+class DailyAttendance(models.Model):
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name="daily_attendance")
+    date = models.DateField()
+    is_present = models.BooleanField(default=True)
+    marked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date"]
+        constraints = [models.UniqueConstraint(fields=["student", "date"], name="unique_student_daily_attendance")]
+
+
 class Assessment(models.Model):
     STATUS_CHOICES = [
         ("completed", "Completed"),
