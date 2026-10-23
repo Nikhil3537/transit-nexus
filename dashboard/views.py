@@ -139,6 +139,7 @@ def student_register_view(request):
         first_name = request.POST.get("first_name", "").strip()
         last_name = request.POST.get("last_name", "").strip()
         email = request.POST.get("email", "").strip()
+        phone = request.POST.get("phone", "").strip()
         college_id = request.POST.get("college_id", "").strip()
         college_name = request.POST.get("college_name", "").strip()
         department_name = request.POST.get("department_name", request.POST.get("department", "")).strip()
@@ -165,7 +166,9 @@ def student_register_view(request):
                 email=email,
                 is_active=False,
             )
-            StudentProfile.objects.create(user=user, college=college, department=department_name)
+            StudentProfile.objects.create(
+                user=user, college=college, department=department_name, phone=phone,
+            )
             AdminStudentRecord.objects.create(
                 name=user.get_full_name() or user.username,
                 college_name=college.college_name,

@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 class StudentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     college = models.ForeignKey("portal.CollegeProfile", on_delete=models.SET_NULL, null=True, blank=True, related_name="student_accounts")
+    phone = models.CharField(max_length=30, blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     semester_label = models.CharField(max_length=100, default="Current Semester")
     semester_range = models.CharField(max_length=100, default="May - Aug 2025")

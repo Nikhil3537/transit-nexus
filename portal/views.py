@@ -1117,7 +1117,10 @@ def admin_users(request):
                 elif role == "company":
                     CompanyProfile.objects.create(user=user, company_name=user.get_full_name() or username)
                 elif role == "student":
-                    StudentProfile.objects.create(user=user, college=student_college, department=student_department)
+                    StudentProfile.objects.create(
+                        user=user, college=student_college, department=student_department,
+                        phone=request.POST.get("phone", "").strip(),
+                    )
                     AdminStudentRecord.objects.create(
                         name=user.get_full_name() or user.username,
                         college_name=college_name,
@@ -1200,7 +1203,7 @@ def admin_users(request):
 def bulk_import(request):
     profile, _ = AdminProfile.objects.get_or_create(user=request.user)
     templates = {
-        "students": ["username", "password", "first_name", "last_name", "email", "college_name", "department"],
+        "students": ["username", "password", "first_name", "last_name", "email", "phone", "college_name", "department"],
         "colleges": ["username", "password", "first_name", "last_name", "email", "college_name", "location"],
         "trainers": ["username", "password", "first_name", "last_name", "email"],
         "companies": ["username", "password", "first_name", "last_name", "email", "company_name"],
@@ -1294,6 +1297,7 @@ def bulk_import(request):
                                             student_college = CollegeProfile.objects.get(college_name__iexact=row["college_name"])
                                             StudentProfile.objects.create(
                                                 user=user, college=student_college, department=row["department"],
+                                                phone=row.get("phone", ""),
                                             )
                                             AdminStudentRecord.objects.create(
                                                 name=user.get_full_name() or user.username,
@@ -1607,6 +1611,7 @@ def _college_student_rows(profile, department_scope=""):
             "student_account": True,
             "username": student.user.username,
             "email": student.user.email or "—",
+            "phone": student.phone or "—",
         })
     manual_students = profile.students.all()
     if department_scope:
@@ -1642,7 +1647,9 @@ def college_students(request):
                     email=data["email"],
                     is_active=True,
                 )
-                StudentProfile.objects.create(user=user, college=profile, department=data["department"])
+                StudentProfile.objects.create(
+                    user=user, college=profile, department=data["department"], phone=data["phone"],
+                )
                 AdminStudentRecord.objects.create(
                     name=user.get_full_name() or user.username,
                     college_name=profile.college_name,

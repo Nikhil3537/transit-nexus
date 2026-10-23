@@ -3,7 +3,7 @@
 {% block content %}
 <section class="panel">
   <div class="panel-head"><h3>Bulk Import Student Accounts</h3><span class="muted">Students will be assigned to {{ profile.college_name }} automatically.</span></div>
-  <p class="muted">Use the CSV template with username, password, first name, last name, email, and department. Do not include a college column.</p>
+  <p class="muted">Use the CSV template with username, password, first name, last name, email, phone, and department. Do not include a college column.</p>
   <form method="post" enctype="multipart/form-data" action="{% url 'college_csv_upload' 'student_accounts' %}" class="form-grid">
     {% csrf_token %}
     <label>Student accounts CSV<input type="file" name="file" accept=".csv,text/csv" required></label>
@@ -37,11 +37,11 @@
   {% for group in student_groups %}
     <h4>{{ group.name }} <span class="muted">({{ group.students|length }})</span></h4>
     <table class="data-table">
-      <thead><tr><th>#</th><th>Student</th><th>Avg Score</th><th>Attendance</th><th>Actions</th></tr></thead>
+      <thead><tr><th>#</th><th>Student</th><th>Phone</th><th>Avg Score</th><th>Attendance</th><th>Actions</th></tr></thead>
       <tbody>
       {% for s in group.students %}
         <tr>
-          <td>{{ forloop.counter }}</td><td>{{ s.name }}{% if s.student_account %}<br><small class="muted">{{ s.username }} · {{ s.email }}</small>{% endif %}</td>
+          <td>{{ forloop.counter }}</td><td>{{ s.name }}{% if s.student_account %}<br><small class="muted">{{ s.username }} · {{ s.email }}</small>{% endif %}</td><td>{% if s.student_account %}{{ s.phone }}{% else %}—{% endif %}</td>
           <td><span class="tag tag-good">{{ s.avg_score }}{% if not s.student_account %}%{% endif %}</span></td><td>{{ s.attendance_pct }}{% if not s.student_account %}%{% endif %}</td>
           <td class="row-actions">{% if s.imported_record %}<span class="tag tag-average">Imported record</span>{% elif s.student_account %}<span class="tag tag-active">Live account</span>{% else %}<a class="btn btn-secondary" href="?edit={{ s.pk }}">Edit</a><form method="post" class="inline-form" onsubmit="return confirm('Delete this student record?');">{% csrf_token %}<input type="hidden" name="record_id" value="{{ s.pk }}"><input type="hidden" name="action" value="delete"><button class="btn btn-danger" type="submit">Delete</button></form>{% endif %}</td>
         </tr>
