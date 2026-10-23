@@ -53,6 +53,7 @@ ACADEMIC_PROGRAMME_CHOICES = [
     ]),
     ("Computer & IT", [
         ("BCA", "BCA"),
+        ("Computer Science and Business System (CSBS)", "Computer Science and Business System (CSBS)"),
         ("Information Technology", "Information Technology"),
         ("Data Science", "Data Science"),
         ("Cyber Security", "Cyber Security"),
