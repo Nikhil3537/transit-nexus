@@ -102,6 +102,17 @@
             {% endfor %}
           </ul>
         </div>
+        {% if college_external_tests %}
+        <div class="list-block" style="margin-top:1rem;">
+          <p class="score-dist-title">College Testmoz Assessments</p>
+          {% for test in college_external_tests %}
+          <div class="sw-item" style="display:flex;justify-content:space-between;gap:.75rem;align-items:center;">
+            <span><i class="fa-solid fa-link"></i> {{ test.title }}</span>
+            {% if now >= test.opens_at and now < test.closes_at %}<a class="btn btn-primary" href="{{ test.external_url }}" target="_blank" rel="noopener">Open</a>{% elif now < test.opens_at %}<span class="muted">Scheduled</span>{% else %}<span class="muted">Closed</span>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
         <canvas id="scoreTrend" height="110"></canvas>
       </div>
 

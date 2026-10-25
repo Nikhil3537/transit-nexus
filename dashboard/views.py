@@ -228,6 +228,10 @@ def student_dashboard(request):
     strengths = profile.strengths.all()
     improvements = profile.improvement_areas.all()
     activities = profile.activities.all()[:6]
+    college_external_tests = (
+        profile.college.online_tests.filter(external_url__gt="").order_by("-opens_at")[:5]
+        if profile.college_id else []
+    )
 
     # ---- Attendance summary ----
     total_classes = len(session_attendance) if session_attendance else sum(a.total_classes for a in attendance_records)
@@ -296,6 +300,8 @@ def student_dashboard(request):
         "overall_grade": overall_grade,
         "grade_label": grade_label,
         "recent_assessments": recent_assessments,
+        "college_external_tests": college_external_tests,
+        "now": timezone.now(),
         "strengths": strengths,
         "improvements": improvements,
         "activities": activities,
@@ -399,12 +405,18 @@ def assessments_view(request):
     assessments = profile.assessments.all()
     completed = assessments.filter(status="completed")
     pending = assessments.filter(status="pending")
+    college_external_tests = (
+        profile.college.online_tests.filter(external_url__gt="").order_by("-opens_at")
+        if profile.college_id else []
+    )
     context = {
         **_base_context(profile),
         "active_page": "assessments",
         "page_title": "Assessments",
         "page_subtitle": f"{completed.count()} completed &middot; {pending.count()} pending",
         "assessments": assessments,
+        "college_external_tests": college_external_tests,
+        "now": timezone.now(),
     }
     return render(request, "dashboard/assessments.html", context)
 
