@@ -8,6 +8,13 @@ from .models import (
 )
 
 
+DATETIME_LOCAL_INPUT_FORMATS = [
+    "%Y-%m-%dT%H:%M",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S.%f",
+]
+
+
 ACADEMIC_PROGRAMME_CHOICES = [
     ("Engineering & Technology", [
         ("Artificial Intelligence and Data Science", "Artificial Intelligence and Data Science"),
@@ -255,8 +262,14 @@ class CollegeQuickReportForm(forms.ModelForm):
 class OnlineTestForm(forms.ModelForm):
     college = forms.ModelChoiceField(queryset=CollegeProfile.objects.none(), required=True)
     external_url = ParticipantURLField(required=False, help_text="Optional Testmoz participant URL")
-    opens_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
-    closes_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
+    opens_at = forms.DateTimeField(
+        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+    )
+    closes_at = forms.DateTimeField(
+        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+    )
 
     class Meta:
         model = OnlineTest
@@ -289,8 +302,14 @@ class CollegeExternalTestForm(forms.ModelForm):
         label="Test URL",
         help_text="Paste the participant link, for example testmoz.com/13656996. The https:// prefix is added automatically.",
     )
-    opens_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
-    closes_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
+    opens_at = forms.DateTimeField(
+        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+    )
+    closes_at = forms.DateTimeField(
+        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+    )
 
     class Meta:
         model = OnlineTest
