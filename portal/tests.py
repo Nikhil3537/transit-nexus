@@ -12,6 +12,7 @@ from .models import (
     OnlineTest, OnlineTestAnswer, OnlineTestAttempt, OnlineTestQuestion,
     PlacementRecord, SyllabusCoverage, TrainerAvailability, TrainerProfile,
 )
+from .forms import CollegeExternalTestForm
 
 COLLEGE_UPLOAD_PAGE_TEST_NAMES = {
     "students": "college_students",
@@ -768,6 +769,19 @@ class OnlineTestWorkflowTests(TestCase):
             options=["3", "4"], correct_answers=["4"], points=5, order=0,
         )
         return online_test, question
+
+    def test_college_external_form_accepts_bare_testmoz_participant_url(self):
+        now = timezone.localtime()
+        form = CollegeExternalTestForm(data={
+            "title": "KSSEM Testmoz Assessment",
+            "instructions": "Use the supplied passcode.",
+            "external_url": "testmoz.com/13656996",
+            "opens_at": (now + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M"),
+            "closes_at": (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M"),
+            "duration_minutes": "30",
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["external_url"], "https://testmoz.com/13656996")
 
     def test_trainer_creates_scheduled_test_and_objective_question(self):
         self.client.force_login(self.trainer_user)

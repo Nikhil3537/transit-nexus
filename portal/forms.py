@@ -113,6 +113,16 @@ ACADEMIC_PROGRAMME_CHOICES = [
 ]
 
 
+class ParticipantURLField(forms.URLField):
+    """Accept a pasted domain while storing a valid absolute participant URL."""
+
+    def to_python(self, value):
+        value = (value or "").strip()
+        if value and "://" not in value:
+            value = f"https://{value}"
+        return super().to_python(value)
+
+
 class CollegeStudentForm(forms.ModelForm):
     avg_score = forms.DecimalField(required=False, min_value=0, max_value=100)
     attendance_pct = forms.DecimalField(required=False, min_value=0, max_value=100)
@@ -244,7 +254,7 @@ class CollegeQuickReportForm(forms.ModelForm):
 
 class OnlineTestForm(forms.ModelForm):
     college = forms.ModelChoiceField(queryset=CollegeProfile.objects.none(), required=True)
-    external_url = forms.URLField(required=False, help_text="Optional Testmoz URL")
+    external_url = ParticipantURLField(required=False, help_text="Optional Testmoz participant URL")
     opens_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
     closes_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
 
@@ -274,10 +284,10 @@ class OnlineTestForm(forms.ModelForm):
 
 
 class CollegeExternalTestForm(forms.ModelForm):
-    external_url = forms.URLField(
+    external_url = ParticipantURLField(
         required=True,
         label="Test URL",
-        help_text="Paste the participant link from Testmoz, not your Testmoz account URL.",
+        help_text="Paste the participant link, for example testmoz.com/13656996. The https:// prefix is added automatically.",
     )
     opens_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
     closes_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
