@@ -24,6 +24,19 @@
   </form>
 </section>
 <section class="panel">
+  <div class="panel-head"><h3>Update Department Attendance</h3><span class="muted">Mark every student in this department once for the selected session.</span></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="mark_department_attendance">
+    <input type="hidden" name="department" value="{{ selected_department }}">
+    <input type="hidden" name="attendance_date" value="{{ selected_date|date:'Y-m-d' }}">
+    <input type="hidden" name="session_name" value="{{ selected_session }}">
+    <label>Status<select name="attendance_status"><option value="present">Present</option><option value="absent">Absent</option></select></label>
+    <div><button class="btn btn-primary" type="submit">Update All Students</button></div>
+  </form>
+  <p class="muted"><a href="?download=attendance&amp;department={{ selected_department|urlencode }}&amp;date={{ selected_date|date:'Y-m-d' }}&amp;session={{ selected_session|urlencode }}">Download complete attendance CSV</a> for this department, date, and session.</p>
+</section>
+<section class="panel">
   <div class="panel-head"><h3>{% if edit_record %}Update Department Attendance{% else %}Add Department Attendance{% endif %}</h3></div>
   <form method="post" class="form-grid">
     {% csrf_token %}

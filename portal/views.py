@@ -338,6 +338,25 @@ def _department_code_for_name(name):
     return letters or "GEN"
 
 
+def _student_identity_key(name, department=""):
+    return " ".join((name or "").split()).casefold(), _canonical_department_name(department).casefold()
+
+
+def _college_student_accounts(profile, department_scope=""):
+    accounts = StudentProfile.objects.select_related("user").filter(college=profile)
+    if department_scope:
+        accounts = accounts.filter(department__iexact=department_scope)
+    unique_accounts = []
+    seen = set()
+    for student in accounts.order_by("user__first_name", "user__last_name", "user__username", "pk"):
+        key = _student_identity_key(student.user.get_full_name() or student.user.username, student.department)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_accounts.append(student)
+    return unique_accounts
+
+
 def _admin_student_records_by_name(profile):
     records_by_name = {}
     records = AdminStudentRecord.objects.filter(college_name__iexact=profile.college_name).order_by("pk")
@@ -1592,13 +1611,13 @@ def college_departments(request):
 def _college_student_rows(profile, department_scope=""):
     rows = []
     admin_records_by_name = _admin_student_records_by_name(profile)
-    student_accounts = StudentProfile.objects.select_related("user").filter(college=profile)
-    if department_scope:
-        student_accounts = student_accounts.filter(department__iexact=department_scope)
-    for student in student_accounts.order_by("user__first_name", "user__last_name", "user__username"):
+    student_accounts = _college_student_accounts(profile, department_scope)
+    account_keys = set()
+    for student in student_accounts:
         student_name = (student.user.get_full_name() or student.user.username).strip().casefold()
         matching_records = admin_records_by_name.get(student_name, [])
         matching_record = matching_records.pop(0) if matching_records else None
+        account_keys.add(_student_identity_key(student_name, student.department or (matching_record.department if matching_record else "")))
         rows.append({
             "pk": f"student-profile:{student.pk}",
             "name": student.user.get_full_name() or student.user.username,
@@ -1616,7 +1635,12 @@ def _college_student_rows(profile, department_scope=""):
     manual_students = profile.students.all()
     if department_scope:
         manual_students = manual_students.filter(department__iexact=department_scope)
-    for record in manual_students:
+    manual_keys = set()
+    for record in manual_students.order_by("name", "pk"):
+        key = _student_identity_key(record.name, record.department)
+        if key in account_keys or key in manual_keys:
+            continue
+        manual_keys.add(key)
         rows.append({
             "pk": record.pk,
             "name": record.name,
@@ -1760,10 +1784,49 @@ def college_attendance(request):
     if selected_department not in department_names and selected_department != department_scope:
         selected_department = department_scope or (department_names[0] if department_names else "")
 
-    students_query = profile.student_accounts.select_related("user")
-    if selected_department:
-        students_query = students_query.filter(department__iexact=selected_department)
-    students = list(students_query.order_by("user__first_name", "user__last_name", "user__username"))
+    students = _college_student_accounts(profile, selected_department)
+
+    if request.method == "GET" and request.GET.get("download") == "attendance":
+        attendance_by_student = {
+            record.student_id: record
+            for record in DailyAttendance.objects.filter(
+                student__in=students, date=selected_date, session_name=selected_session,
+            )
+        }
+        output = io.StringIO(newline="")
+        writer = csv.writer(output)
+        writer.writerow(["date", "session", "department", "student", "username", "status", "marked_at"])
+        for student in students:
+            record = attendance_by_student.get(student.pk)
+            writer.writerow([
+                selected_date.isoformat(), selected_session,
+                _canonical_department_name(student.department),
+                student.user.get_full_name() or student.user.username,
+                student.user.username,
+                "Present" if record and record.is_present else "Absent",
+                timezone.localtime(record.marked_at).isoformat() if record else "",
+            ])
+        response = HttpResponse(output.getvalue(), content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="attendance-{selected_date.isoformat()}.csv"'
+        return response
+
+    if request.method == "POST" and request.POST.get("action") == "mark_department_attendance":
+        is_present = request.POST.get("attendance_status") == "present"
+        with transaction.atomic():
+            for student in students:
+                DailyAttendance.objects.update_or_create(
+                    student=student, date=selected_date, session_name=selected_session,
+                    defaults={"is_present": is_present},
+                )
+        messages.success(
+            request,
+            f"Updated {len(students)} student(s) in {selected_department} as "
+            f"{'present' if is_present else 'absent'} for {selected_session}.",
+        )
+        return redirect(
+            f"{reverse('college_attendance')}?department={selected_department}"
+            f"&date={selected_date:%Y-%m-%d}&session={selected_session}"
+        )
 
     if request.method == "POST" and request.POST.get("action") == "toggle_student_attendance":
         student_id = request.POST.get("student_id", "")
