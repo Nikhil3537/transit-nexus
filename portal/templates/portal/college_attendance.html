@@ -33,6 +33,7 @@
   </div>
   <p class="muted">Start with everyone present, switch off only absent students, then save once.</p>
   <p class="muted"><a href="?download=attendance&amp;department={{ selected_department|urlencode }}&amp;date={{ selected_date|date:'Y-m-d' }}&amp;session={{ selected_session|urlencode }}">Download complete attendance CSV</a> for this department, date, and session.</p>
+  <p class="muted"><a class="btn btn-secondary" href="?download=attendance_pdf&amp;department=all&amp;date={{ selected_date|date:'Y-m-d' }}&amp;session={{ selected_session|urlencode }}">Download complete college attendance PDF</a></p>
 </section>
 <section class="panel">
   <div class="panel-head"><h3>{% if edit_record %}Update Department Attendance{% else %}Add Department Attendance{% endif %}</h3></div>

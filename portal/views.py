@@ -357,6 +357,72 @@ def _college_student_accounts(profile, department_scope=""):
     return unique_accounts
 
 
+def _attendance_pdf_response(profile, students, attendance_by_student, selected_date, selected_session):
+    """Build a small dependency-free PDF attendance report."""
+    rows = [
+        f"College Attendance Report: {profile.college_name}",
+        f"Date: {selected_date:%d %b %Y}    Session: {selected_session}",
+        "",
+        "Student                                      Department                 Status",
+        "-" * 88,
+    ]
+    for student in students:
+        record = attendance_by_student.get(student.pk)
+        name = (student.user.get_full_name() or student.user.username)[:42]
+        department = _canonical_department_name(student.department)[:25]
+        status = "Present" if record and record.is_present else "Absent"
+        rows.append(f"{name:<42} {department:<25} {status}")
+    if len(students) == 0:
+        rows.append("No registered students found.")
+
+    def pdf_text(value):
+        value = value.encode("latin-1", "replace").decode("latin-1")
+        return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+    page_lines = 48
+    pages = [rows[index:index + page_lines] for index in range(0, len(rows), page_lines)] or [[]]
+    objects = [None, None]
+    page_ids = []
+    font_id = 2 + (2 * len(pages)) + 1
+    for page_lines_data in pages:
+        page_id = len(objects)
+        content_id = page_id + 1
+        page_ids.append(page_id)
+        objects.append(
+            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            f"/Resources << /Font << /F1 {font_id} 0 R >> >> "
+            f"/Contents {content_id} 0 R >>"
+        )
+        commands = ["BT", "/F1 9 Tf", "50 750 Td"]
+        for line in page_lines_data:
+            commands.append(f"({pdf_text(line)}) Tj")
+            commands.append("0 -14 Td")
+        commands.append("ET")
+        stream = "\n".join(commands).encode("latin-1")
+        objects.append(f"<< /Length {len(stream)} >>\nstream\n{stream.decode('latin-1')}\nendstream")
+
+    assert font_id == len(objects)
+    objects.append("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    objects[0] = "<< /Type /Catalog /Pages 2 0 R >>"
+    objects[1] = f"<< /Type /Pages /Kids [{' '.join(f'{page_id} 0 R' for page_id in page_ids)}] /Count {len(page_ids)} >>"
+
+    pdf = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for object_id, value in enumerate(objects):
+        offsets.append(len(pdf))
+        pdf.extend(f"{object_id + 1} 0 obj\n{value}\nendobj\n".encode("latin-1"))
+    xref_offset = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode("ascii"))
+    for offset in offsets[1:]:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    pdf.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode("ascii")
+    )
+    response = HttpResponse(bytes(pdf), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="college-attendance-{selected_date.isoformat()}.pdf"'
+    return response
+
+
 def _admin_student_records_by_name(profile):
     records_by_name = {}
     records = AdminStudentRecord.objects.filter(college_name__iexact=profile.college_name).order_by("pk")
@@ -1777,14 +1843,31 @@ def college_attendance(request):
         },
         key=_department_sort_key,
     ))
+    download_all_college = (
+        request.method == "GET"
+        and request.GET.get("download") == "attendance_pdf"
+        and request.GET.get("department") == "all"
+        and not department_scope
+    )
     selected_department = department_scope or request.GET.get("department", "").strip()
     selected_department = _canonical_department_name(selected_department) if selected_department else ""
-    if not selected_department and department_names:
+    if not download_all_college and not selected_department and department_names:
         selected_department = department_names[0]
-    if selected_department not in department_names and selected_department != department_scope:
+    if not download_all_college and selected_department not in department_names and selected_department != department_scope:
         selected_department = department_scope or (department_names[0] if department_names else "")
 
-    students = _college_student_accounts(profile, selected_department)
+    students = _college_student_accounts(profile, "" if download_all_college else selected_department)
+
+    if request.method == "GET" and request.GET.get("download") == "attendance_pdf":
+        attendance_by_student = {
+            record.student_id: record
+            for record in DailyAttendance.objects.filter(
+                student__in=students, date=selected_date, session_name=selected_session,
+            )
+        }
+        return _attendance_pdf_response(
+            profile, students, attendance_by_student, selected_date, selected_session,
+        )
 
     if request.method == "GET" and request.GET.get("download") == "attendance":
         attendance_by_student = {
