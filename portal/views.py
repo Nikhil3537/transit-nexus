@@ -401,7 +401,7 @@ def _attendance_pdf_response(profile, students, attendance_by_student, selected_
         stream = "\n".join(commands).encode("latin-1")
         objects.append(f"<< /Length {len(stream)} >>\nstream\n{stream.decode('latin-1')}\nendstream")
 
-    assert font_id == len(objects)
+    assert font_id == len(objects) + 1
     objects.append("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
     objects[0] = "<< /Type /Catalog /Pages 2 0 R >>"
     objects[1] = f"<< /Type /Pages /Kids [{' '.join(f'{page_id} 0 R' for page_id in page_ids)}] /Count {len(page_ids)} >>"
