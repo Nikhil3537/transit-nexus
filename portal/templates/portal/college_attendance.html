@@ -101,12 +101,14 @@
 {% block page_scripts %}
 <script>
   const trend = {{ trend_json|safe }};
-  new Chart(document.getElementById('attTrend'), {
-    type: 'line',
-    data: { labels: trend.labels, datasets: [{ label: 'Avg %', data: trend.values,
-      borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#22c55e' }] },
-    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
-  });
+  if (typeof Chart !== 'undefined') {
+    new Chart(document.getElementById('attTrend'), {
+      type: 'line',
+      data: { labels: trend.labels, datasets: [{ label: 'Avg %', data: trend.values,
+        borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#22c55e' }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+    });
+  }
   document.querySelectorAll('[data-attendance-toggle]').forEach((toggle) => {
     toggle.addEventListener('click', () => {
       const hidden = toggle.parentElement.querySelector('input[type="hidden"]');
