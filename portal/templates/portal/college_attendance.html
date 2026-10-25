@@ -55,6 +55,12 @@
     <h3>{{ selected_department|default:"Department" }} Attendance · {{ selected_date|date:"M j, Y" }}</h3>
     <span class="muted">Session: {{ selected_session }} · Only this department is shown.</span>
   </div>
+  <form method="post" id="departmentAttendanceForm">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_department_attendance">
+    <input type="hidden" name="department" value="{{ selected_department }}">
+    <input type="hidden" name="attendance_date" value="{{ selected_date|date:'Y-m-d' }}">
+    <input type="hidden" name="session_name" value="{{ selected_session }}">
   <table class="data-table">
     <thead><tr><th>Student</th><th>Department</th><th>Attendance</th></tr></thead>
     <tbody>
@@ -63,7 +69,13 @@
       <tr>
         <td>{{ student.user.get_full_name|default:student.user.username }}</td>
         <td>{{ student.department|default:"—" }}</td>
-        <td><span class="tag {% if attendance and attendance.is_present %}tag-good{% else %}tag-bad{% endif %}">{% if attendance and attendance.is_present %}Present{% else %}Absent{% endif %}</span></td>
+        <td>
+          <input type="hidden" name="attendance_{{ student.pk }}" value="{% if attendance and attendance.is_present %}present{% else %}absent{% endif %}">
+          <button class="attendance-toggle {% if attendance and attendance.is_present %}is-on{% else %}is-off{% endif %}" type="button" data-attendance-toggle role="switch" aria-checked="{% if attendance and attendance.is_present %}true{% else %}false{% endif %}" aria-label="Toggle attendance for {{ student.user.get_full_name|default:student.user.username }}">
+            <span class="attendance-toggle-track" aria-hidden="true"><span class="attendance-toggle-knob"></span></span>
+            <span class="attendance-toggle-label">{% if attendance and attendance.is_present %}Present{% else %}Absent{% endif %}</span>
+          </button>
+        </td>
       </tr>
       {% endwith %}
     {% empty %}
@@ -71,6 +83,8 @@
     {% endfor %}
     </tbody>
   </table>
+    <button class="btn btn-primary" type="submit">Save All Student Attendance</button>
+  </form>
 </section>
 <section class="grid-2">
   <div class="panel">
@@ -98,6 +112,17 @@
     data: { labels: trend.labels, datasets: [{ label: 'Avg %', data: trend.values,
       borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#22c55e' }] },
     options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+  });
+  document.querySelectorAll('[data-attendance-toggle]').forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+      const hidden = toggle.parentElement.querySelector('input[type="hidden"]');
+      const isPresent = hidden.value !== 'present';
+      hidden.value = isPresent ? 'present' : 'absent';
+      toggle.classList.toggle('is-on', isPresent);
+      toggle.classList.toggle('is-off', !isPresent);
+      toggle.setAttribute('aria-checked', String(isPresent));
+      toggle.querySelector('.attendance-toggle-label').textContent = isPresent ? 'Present' : 'Absent';
+    });
   });
 </script>
 {% endblock %}

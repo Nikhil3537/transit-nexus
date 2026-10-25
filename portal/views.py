@@ -1810,22 +1810,30 @@ def college_attendance(request):
         response["Content-Disposition"] = f'attachment; filename="attendance-{selected_date.isoformat()}.csv"'
         return response
 
-    if request.method == "POST" and request.POST.get("action") == "mark_department_attendance":
-        is_present = request.POST.get("attendance_status") == "present"
+    if request.method == "POST" and request.POST.get("action") in {"mark_department_attendance", "save_department_attendance"}:
+        action = request.POST.get("action")
+        uniform_status = request.POST.get("attendance_status") == "present"
         with transaction.atomic():
             student_ids = [student.pk for student in students]
             existing_records = list(DailyAttendance.objects.filter(
                 student_id__in=student_ids, date=selected_date, session_name=selected_session,
             ))
             for record in existing_records:
-                record.is_present = is_present
+                record.is_present = (
+                    request.POST.get(f"attendance_{record.student_id}") == "present"
+                    if action == "save_department_attendance" else uniform_status
+                )
             if existing_records:
                 DailyAttendance.objects.bulk_update(existing_records, ["is_present"])
             existing_student_ids = {record.student_id for record in existing_records}
             missing_records = [
                 DailyAttendance(
                     student_id=student_id, date=selected_date,
-                    session_name=selected_session, is_present=is_present,
+                    session_name=selected_session,
+                    is_present=(
+                        request.POST.get(f"attendance_{student_id}") == "present"
+                        if action == "save_department_attendance" else uniform_status
+                    ),
                 )
                 for student_id in student_ids if student_id not in existing_student_ids
             ]
@@ -1833,8 +1841,8 @@ def college_attendance(request):
                 DailyAttendance.objects.bulk_create(missing_records)
         messages.success(
             request,
-            f"Updated {len(students)} student(s) in {selected_department} as "
-            f"{'present' if is_present else 'absent'} for {selected_session}.",
+            f"Saved attendance for {len(students)} student(s) in {selected_department} "
+            f"for {selected_session}.",
         )
         return redirect(
             f"{reverse('college_attendance')}?department={selected_department}"
