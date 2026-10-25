@@ -1847,6 +1847,10 @@ def college_attendance(request):
     }
     for student in students:
         student.today_attendance = today_attendance.get(student.pk)
+    all_students_present = bool(students) and all(
+        student.today_attendance and student.today_attendance.is_present
+        for student in students
+    )
     departments = [
         department for department in all_departments
         if not selected_department or _canonical_department_name(department.name) == selected_department
@@ -1863,6 +1867,7 @@ def college_attendance(request):
                     departments=departments, students=students, today=selected_date,
                     selected_date=selected_date, selected_session=selected_session,
                     department_options=department_names, selected_department=selected_department,
+                    all_students_present=all_students_present,
                     avg_attendance=avg_attendance, trend_json=trend_json,
                     csv_dataset="attendance", **management)
     return render(request, "portal/college_attendance.html", ctx)

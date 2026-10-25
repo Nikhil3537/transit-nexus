@@ -31,8 +31,13 @@
     <input type="hidden" name="department" value="{{ selected_department }}">
     <input type="hidden" name="attendance_date" value="{{ selected_date|date:'Y-m-d' }}">
     <input type="hidden" name="session_name" value="{{ selected_session }}">
-    <label>Status<select name="attendance_status"><option value="present">Present</option><option value="absent">Absent</option></select></label>
-    <div><button class="btn btn-primary" type="submit">Update All Students</button></div>
+    <input type="hidden" name="attendance_status" value="{% if all_students_present %}absent{% else %}present{% endif %}">
+    <div>
+      <button class="attendance-toggle {% if all_students_present %}is-on{% else %}is-off{% endif %}" type="submit" role="switch" aria-checked="{% if all_students_present %}true{% else %}false{% endif %}" aria-label="{% if all_students_present %}Mark all students absent{% else %}Mark all students present{% endif %}">
+        <span class="attendance-toggle-track" aria-hidden="true"><span class="attendance-toggle-knob"></span></span>
+        <span>{% if all_students_present %}All Present · click to mark all absent{% else %}Mark all students present{% endif %}</span>
+      </button>
+    </div>
   </form>
   <p class="muted"><a href="?download=attendance&amp;department={{ selected_department|urlencode }}&amp;date={{ selected_date|date:'Y-m-d' }}&amp;session={{ selected_session|urlencode }}">Download complete attendance CSV</a> for this department, date, and session.</p>
 </section>
