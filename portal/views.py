@@ -1813,11 +1813,24 @@ def college_attendance(request):
     if request.method == "POST" and request.POST.get("action") == "mark_department_attendance":
         is_present = request.POST.get("attendance_status") == "present"
         with transaction.atomic():
-            for student in students:
-                DailyAttendance.objects.update_or_create(
-                    student=student, date=selected_date, session_name=selected_session,
-                    defaults={"is_present": is_present},
+            student_ids = [student.pk for student in students]
+            existing_records = list(DailyAttendance.objects.filter(
+                student_id__in=student_ids, date=selected_date, session_name=selected_session,
+            ))
+            for record in existing_records:
+                record.is_present = is_present
+            if existing_records:
+                DailyAttendance.objects.bulk_update(existing_records, ["is_present"])
+            existing_student_ids = {record.student_id for record in existing_records}
+            missing_records = [
+                DailyAttendance(
+                    student_id=student_id, date=selected_date,
+                    session_name=selected_session, is_present=is_present,
                 )
+                for student_id in student_ids if student_id not in existing_student_ids
+            ]
+            if missing_records:
+                DailyAttendance.objects.bulk_create(missing_records)
         messages.success(
             request,
             f"Updated {len(students)} student(s) in {selected_department} as "
@@ -1827,28 +1840,6 @@ def college_attendance(request):
             f"{reverse('college_attendance')}?department={selected_department}"
             f"&date={selected_date:%Y-%m-%d}&session={selected_session}"
         )
-
-    if request.method == "POST" and request.POST.get("action") == "toggle_student_attendance":
-        student_id = request.POST.get("student_id", "")
-        student = profile.student_accounts.filter(pk=student_id).first() if student_id.isdecimal() else None
-        if student:
-            record, created = DailyAttendance.objects.get_or_create(
-                student=student, date=selected_date, session_name=selected_session,
-            )
-            if not created:
-                record.is_present = not record.is_present
-                record.save(update_fields=["is_present"])
-            messages.success(
-                request,
-                f"{student.user.get_full_name() or student.user.username} marked "
-                f"{'present' if record.is_present else 'absent'} for {selected_date:%d %b %Y} ({selected_session}).",
-            )
-        else:
-            messages.error(request, "That student is not registered with this college.")
-        redirect_url = reverse("college_attendance")
-        if selected_department:
-            redirect_url = f"{redirect_url}?department={selected_department}&date={selected_date:%Y-%m-%d}&session={selected_session}"
-        return redirect(redirect_url)
 
     today_attendance = {
         record.student_id: record

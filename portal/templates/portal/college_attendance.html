@@ -58,20 +58,7 @@
       <tr>
         <td>{{ student.user.get_full_name|default:student.user.username }}</td>
         <td>{{ student.department|default:"—" }}</td>
-        <td>
-          <form method="post" class="attendance-toggle-form">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="toggle_student_attendance">
-            <input type="hidden" name="student_id" value="{{ student.pk }}">
-            <input type="hidden" name="department" value="{{ selected_department }}">
-            <input type="hidden" name="attendance_date" value="{{ selected_date|date:'Y-m-d' }}">
-            <input type="hidden" name="session_name" value="{{ selected_session }}">
-            <button class="attendance-toggle {% if attendance and attendance.is_present %}is-on{% else %}is-off{% endif %}" type="submit" role="switch" aria-checked="{% if attendance and attendance.is_present %}true{% else %}false{% endif %}" aria-label="Toggle attendance for {{ student.user.get_full_name|default:student.user.username }}">
-              <span class="attendance-toggle-track" aria-hidden="true"><span class="attendance-toggle-knob"></span></span>
-              <span>{% if attendance and attendance.is_present %}Present{% else %}Absent{% endif %}</span>
-            </button>
-          </form>
-        </td>
+        <td><span class="tag {% if attendance and attendance.is_present %}tag-good{% else %}tag-bad{% endif %}">{% if attendance and attendance.is_present %}Present{% else %}Absent{% endif %}</span></td>
       </tr>
       {% endwith %}
     {% empty %}
