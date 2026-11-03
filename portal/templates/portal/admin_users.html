@@ -154,15 +154,16 @@
     </div>
   </div>
   <table class="data-table">
-    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Email</th><th>Access</th><th>Action</th></tr></thead>
+    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>College</th><th>Email</th><th>Access</th><th>Action</th></tr></thead>
     <tbody>
     {% for r in rows %}
       <tr>
         <td>{{ r.user.username }}</td><td>{{ r.user.first_name }} {{ r.user.last_name }}</td>
-        <td><span class="tag tag-good">{{ r.role }}</span></td><td>{{ r.user.email|default:"—" }}</td>
+        <td><span class="tag tag-good">{{ r.role }}</span></td><td>{{ r.assigned_college|default:"—" }}</td><td>{{ r.user.email|default:"—" }}</td>
         <td>{% if r.user.is_active %}<span class="tag tag-good">Approved</span>{% else %}<span class="tag tag-warn">Pending</span>{% endif %}</td>
         <td>
           {% if r.user != request.user %}
+          {% if r.role == "Trainer" %}<form method="post" class="inline-form" style="margin-bottom:6px;">{% csrf_token %}<input type="hidden" name="action" value="assign_trainer_college"><input type="hidden" name="user_id" value="{{ r.user.id }}"><select name="college_id" required><option value="">Assign college</option>{% for college in college_records %}<option value="{{ college.pk }}">{{ college.college_name }}</option>{% endfor %}</select><button class="btn btn-secondary" type="submit">Assign</button></form>{% endif %}
           <form method="post">
             {% csrf_token %}
             <input type="hidden" name="user_id" value="{{ r.user.id }}">
@@ -172,7 +173,7 @@
           {% else %}<span class="muted">Current account</span>{% endif %}
         </td>
       </tr>
-    {% endfor %}
+    {% empty %}<tr><td colspan="7">No accounts found.</td></tr>{% endfor %}
     </tbody>
   </table>
 </section>

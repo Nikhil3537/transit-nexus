@@ -1209,6 +1209,18 @@ def admin_users(request):
             approved_count = pending_users.update(is_active=True)
             messages.success(request, f"Approved {approved_count} pending account(s).")
             return redirect("admin_users")
+        if request.POST.get("action") == "assign_trainer_college":
+            trainer = TrainerProfile.objects.filter(user_id=request.POST.get("user_id", "")).select_related("user").first()
+            college = CollegeProfile.objects.filter(
+                pk=request.POST.get("college_id", ""), workspace__isnull=True,
+            ).first()
+            if trainer is None or college is None:
+                messages.error(request, "Choose a valid trainer and college.")
+            else:
+                trainer.college = college
+                trainer.save(update_fields=["college"])
+                messages.success(request, f"Trainer '{trainer.user.username}' assigned to {college.college_name}.")
+            return redirect("admin_users")
         if request.POST.get("action") == "create":
             username = request.POST.get("username", "").strip()
             password = request.POST.get("password", "")
@@ -1310,6 +1322,7 @@ def admin_users(request):
     selected_college = request.GET.get("college_filter", "").strip()
     selected_role_tab = request.GET.get("role_tab", "all").strip().lower()
     college_options = list(CollegeProfile.objects.order_by("college_name").values_list("college_name", flat=True).distinct())
+    college_records = CollegeProfile.objects.filter(workspace__isnull=True).order_by("college_name", "pk")
     department_options = PREFERRED_DEPARTMENT_ORDER
     users = User.objects.all().order_by("username")
     rows = []
@@ -1343,7 +1356,10 @@ def admin_users(request):
             if not student_profile or not student_profile.college or student_profile.college.college_name != selected_college:
                 continue
 
-        rows.append({"user": u, "role": role})
+        assigned_college = ""
+        if hasattr(u, "trainer_profile") and u.trainer_profile.college_id:
+            assigned_college = u.trainer_profile.college.college_name
+        rows.append({"user": u, "role": role, "assigned_college": assigned_college})
 
     total_accounts = len(rows)
     student_accounts = sum(1 for row in rows if row["role"] == "Student")
@@ -1353,6 +1369,7 @@ def admin_users(request):
     ctx = _page_ctx(profile, ADMIN_NAV, "Users & Roles", "Users & Roles",
                     f"{total_accounts} total accounts", "Super Admin",
                     rows=rows, college_options=college_options, department_options=department_options,
+                    college_records=college_records,
                     selected_college=selected_college, selected_role_tab=selected_role_tab,
                     total_accounts=total_accounts, student_accounts=student_accounts,
                     college_accounts=college_accounts, pending_accounts=pending_accounts)

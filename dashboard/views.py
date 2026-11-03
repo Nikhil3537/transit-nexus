@@ -192,22 +192,12 @@ def trainer_register_view(request):
     if request.user.is_authenticated:
         return _redirect_for_role(request.user)
 
-    colleges = CollegeProfile.objects.filter(
-        user__admin_profile__isnull=True,
-        user__is_staff=False,
-        workspace__isnull=True,
-        user__is_active=True,
-    ).order_by("college_name", "pk")
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
-        college_id = request.POST.get("college_id", "").strip()
-        college = colleges.filter(pk=college_id).first() if college_id.isdecimal() else None
 
         if not username or not password:
             messages.error(request, "Username and password are required.")
-        elif college is None:
-            messages.error(request, "Choose an active college.")
         elif User.objects.filter(username=username).exists():
             messages.error(request, f"Username '{username}' is already taken.")
         else:
@@ -221,7 +211,6 @@ def trainer_register_view(request):
             )
             TrainerProfile.objects.create(
                 user=user,
-                college=college,
                 domain=request.POST.get("domain", "").strip(),
                 phone=request.POST.get("phone", "").strip(),
             )
@@ -229,8 +218,6 @@ def trainer_register_view(request):
             return redirect("login")
 
     return render(request, "dashboard/trainer_register.html", {
-        "colleges": colleges,
-        "form_values": {"college_id": request.POST.get("college_id", "").strip()} if request.method == "POST" else {},
     })
 
 
