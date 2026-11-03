@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.utils import timezone
+from dashboard.models import StudentProfile
 
 from .models import (
     AdminInvoice, CollegeAssessment, CollegeProfile, CollegeProgram, CollegeQuickReport, CollegeResult, CollegeStudent,
