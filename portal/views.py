@@ -2266,7 +2266,7 @@ def college_settings(request):
 # TRAINER — sub-pages
 # =========================================================
 
-@login_required
+@trainer_account_required
 def trainer_batches(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     batches = profile.batches.all()
@@ -2275,7 +2275,7 @@ def trainer_batches(request):
     return render(request, "portal/trainer_batches.html", ctx)
 
 
-@login_required
+@trainer_account_required
 def trainer_attendance(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     batches = profile.batches.all()
@@ -2419,7 +2419,7 @@ def trainer_review_test_answer(request, test_id, answer_id):
     return HttpResponseForbidden("Submit a score to review this written response.")
 
 
-@login_required
+@trainer_account_required
 def trainer_assignments(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     assignments = profile.assignments.all()
@@ -2428,7 +2428,7 @@ def trainer_assignments(request):
     return render(request, "portal/trainer_assignments.html", ctx)
 
 
-@login_required
+@trainer_account_required
 def trainer_students(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     if profile.college_id is None:
@@ -2443,7 +2443,7 @@ def trainer_students(request):
     return render(request, "portal/trainer_students.html", ctx)
 
 
-@login_required
+@trainer_account_required
 def trainer_question_bank(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     items = profile.question_bank.all()
@@ -2452,7 +2452,7 @@ def trainer_question_bank(request):
     return render(request, "portal/trainer_question_bank.html", ctx)
 
 
-@login_required
+@trainer_account_required
 def trainer_reports(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     trend = profile.trend_points.all()
@@ -2462,7 +2462,7 @@ def trainer_reports(request):
     return render(request, "portal/trainer_reports.html", ctx)
 
 
-@login_required
+@trainer_account_required
 def trainer_calendar(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     events = profile.calendar_events.all()
@@ -2471,7 +2471,7 @@ def trainer_calendar(request):
     return render(request, "portal/trainer_calendar.html", ctx)
 
 
-@login_required
+@trainer_account_required
 def trainer_settings(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     user = profile.user
