@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import OperationalError, connections, transaction
-from django.http import Http404, HttpResponse, HttpResponseForbidden
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -20,14 +20,14 @@ from .models import (
     TrainerProfile, Batch, TrainerAssessment, PendingTask, TrainerTrendPoint,
     CompanyProfile, Candidate, CompanyInterview,
     AdminStudentRecord, AdminAttendanceSummary, AdminInvoice, Announcement,
-    CollegeStudent, CollegeAssessment, CollegeProgram, PlacementRecord,
+    CollegeStudent, CollegeAssessment, CollegeResult, DepartmentResultDocument, CollegeProgram, PlacementRecord,
     Faculty, SyllabusCoverage, CollegeNotification,
     BatchAttendanceEntry, TrainerAssignment, TrainerStudent, QuestionBankItem,
     TrainerCalendarEvent, TrainerAvailability, OnlineTest, OnlineTestQuestion,
     OnlineTestAttempt, OnlineTestAnswer, JobDrive, Offer,
 )
 from .forms import (
-    CollegeAssessmentForm, CollegeExternalTestForm, CollegeInvoiceForm, CollegeProgramForm, CollegeQuickReportForm,
+    CollegeAssessmentForm, CollegeExternalTestForm, CollegeInvoiceForm, CollegeProgramForm, CollegeQuickReportForm, CollegeResultForm, DepartmentResultDocumentForm,
     CollegeInvoiceForm, CollegeQuickReportForm, CollegeStudentAccountForm, CollegeStudentForm,
     DepartmentAttendanceForm, FacultyForm, OnlineTestForm, PlacementRecordForm, SyllabusCoverageForm,
 )
@@ -50,6 +50,7 @@ COLLEGE_NAV = [
     ("fa-solid fa-sitemap", "Department Overview", "college_departments"),
     ("fa-solid fa-user-graduate", "Student Performance", "college_students"),
     ("fa-solid fa-clipboard-list", "Assessments", "college_assessments"),
+    ("fa-solid fa-square-poll-vertical", "Results", "college_results"),
     ("fa-solid fa-calendar-check", "Attendance", "college_attendance"),
     ("fa-solid fa-chalkboard-user", "Training Programs", "college_programs"),
     ("fa-solid fa-file-invoice-dollar", "Payments", "college_payments"),
@@ -624,6 +625,7 @@ def college_dashboard(request):
 
     top_departments = sorted(departments, key=lambda d: _department_sort_key(d.name or d.code))[:3]
     quick_reports = profile.quick_reports.all()
+    published_results = profile.results.select_related("student__user").all()
 
     context = {
         "profile": profile,
@@ -642,6 +644,8 @@ def college_dashboard(request):
         "trend_json": trend_json,
         "top_departments": top_departments,
         "quick_reports": quick_reports,
+        "published_results_count": published_results.count(),
+        "recent_results": published_results[:5],
     }
     return render(request, "portal/college_dashboard.html", context)
 
@@ -1818,6 +1822,64 @@ def college_assessments(request):
                     linked_tests=linked_tests, external_form=external_form,
                     csv_dataset="assessments", **management)
     return render(request, "portal/college_assessments.html", ctx)
+
+
+@college_account_required
+def college_results(request):
+    profile = _college_workspace(request)
+    records = profile.results.select_related("student__user").all()
+    documents = profile.result_documents.all()
+    document_form = DepartmentResultDocumentForm()
+    if request.method == "POST" and request.POST.get("action") == "upload_document":
+        document_form = DepartmentResultDocumentForm(request.POST, request.FILES)
+        if document_form.is_valid():
+            document = document_form.save(commit=False)
+            document.college = profile
+            document.save()
+            messages.success(request, "Department results PDF uploaded for your college.")
+            return redirect("college_results")
+    elif request.method == "POST" and request.POST.get("action") == "delete_document":
+        document = documents.filter(pk=request.POST.get("document_id", "")).first()
+        if document:
+            document.delete()
+            messages.success(request, "Results PDF removed.")
+        else:
+            messages.error(request, "That PDF was not found for your college.")
+        return redirect("college_results")
+    record_id = request.POST.get("record_id", "").strip() if request.method == "POST" else request.GET.get("edit", "")
+    instance = records.filter(pk=record_id).first() if record_id.isdecimal() else None
+
+    if request.method == "POST" and request.POST.get("action") == "delete":
+        if instance:
+            instance.delete()
+            messages.success(request, "Result deleted.")
+        else:
+            messages.error(request, "That result was not found for your college.")
+        return redirect("college_results")
+
+    form = CollegeResultForm(request.POST or None, instance=instance, college=profile)
+    if request.method == "POST" and form.is_valid():
+        result = form.save(commit=False)
+        result.college = profile
+        result.save()
+        messages.success(request, "Result updated and published to the student." if instance else "Result published to the student.")
+        return redirect("college_results")
+
+    ctx = _page_ctx(profile, COLLEGE_NAV, "Results", "Results",
+                    f"{records.count()} published results", _college_role_label(request),
+                    results=records, record_form=form, edit_record=instance,
+                    documents=documents, document_form=document_form)
+    return render(request, "portal/college_results.html", ctx)
+
+
+@login_required
+def download_result_document(request, document_id):
+    document = get_object_or_404(DepartmentResultDocument.objects.select_related("college"), pk=document_id)
+    is_college_account = hasattr(request.user, "college_profile") and _college_workspace(request).pk == document.college_id
+    is_student_account = hasattr(request.user, "profile") and request.user.profile.college_id == document.college_id
+    if not (is_college_account or is_student_account):
+        return HttpResponseForbidden("You cannot access this results PDF.")
+    return FileResponse(document.pdf.open("rb"), as_attachment=False, filename=document.pdf.name.rsplit("/", 1)[-1], content_type="application/pdf")
 
 
 @college_account_required

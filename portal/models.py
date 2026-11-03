@@ -438,6 +438,45 @@ class CollegeAssessment(models.Model):
         ordering = ["-date"]
 
 
+class CollegeResult(models.Model):
+    college = models.ForeignKey(CollegeProfile, on_delete=models.CASCADE, related_name="results")
+    student = models.ForeignKey(
+        StudentProfile, on_delete=models.CASCADE, related_name="college_results",
+    )
+    exam_name = models.CharField(max_length=150)
+    subject = models.CharField(max_length=120)
+    score = models.DecimalField(max_digits=6, decimal_places=2)
+    max_score = models.DecimalField(max_digits=6, decimal_places=2, default=100)
+    published_at = models.DateField(default=None, null=True, blank=True)
+    remarks = models.CharField(max_length=250, blank=True)
+
+    class Meta:
+        ordering = ["-published_at", "-id"]
+
+    @property
+    def percentage(self):
+        if not self.max_score:
+            return 0
+        return round((self.score / self.max_score) * 100, 1)
+
+    def __str__(self):
+        return f"{self.student} — {self.exam_name} — {self.subject}"
+
+
+class DepartmentResultDocument(models.Model):
+    college = models.ForeignKey(CollegeProfile, on_delete=models.CASCADE, related_name="result_documents")
+    department = models.CharField(max_length=150)
+    title = models.CharField(max_length=150)
+    pdf = models.FileField(upload_to="college-results/%Y/%m/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return f"{self.college} — {self.department} — {self.title}"
+
+
 class CollegeProgram(models.Model):
     STATUS_CHOICES = [("active", "Active"), ("completed", "Completed")]
 

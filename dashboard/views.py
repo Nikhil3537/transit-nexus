@@ -22,7 +22,7 @@ from .models import (
     Skill,
     DailyAttendance,
 )
-from portal.models import AdminStudentRecord, CollegeProfile, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
+from portal.models import AdminStudentRecord, CollegeProfile, CollegeResult, DepartmentResultDocument, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
 from portal.forms import ACADEMIC_PROGRAMME_CHOICES
 
 
@@ -665,6 +665,10 @@ def results_reports_view(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
     enrollments = profile.enrollments.select_related("course").all()
     assessments = list(profile.assessments.filter(status="completed", score__isnull=False))
+    published_results = list(profile.college_results.filter(college=profile.college) if profile.college_id else [])
+    result_documents = DepartmentResultDocument.objects.filter(
+        college=profile.college,
+    ).filter(department__iexact=profile.department) if profile.college_id and profile.department else DepartmentResultDocument.objects.none()
 
     trend_source = sorted(assessments, key=lambda a: a.date)[-6:]
     trend = {
@@ -681,6 +685,8 @@ def results_reports_view(request):
         "enrollments": enrollments,
         "avg_score": avg_score,
         "trend_json": json.dumps(trend),
+        "published_results": published_results,
+        "result_documents": result_documents,
     }
     return render(request, "dashboard/results_reports.html", context)
 

@@ -2,11 +2,15 @@
 {% block title %}College Dashboard · Transit Nexus{% endblock %}
 {% block content %}
 
-<section class="stat-grid" style="grid-template-columns: repeat(5, 1fr);">
+<section class="stat-grid" style="grid-template-columns: repeat(6, 1fr);">
   <div class="stat-card">
     <div class="stat-icon blue"><i class="fa-solid fa-user-graduate"></i></div>
     <div class="stat-body"><h3>Total Students</h3><p class="stat-value">{{ total_students }}</p><span class="stat-sub">Across {{ departments|length }} departments</span></div>
   </div>
+  <a class="stat-card" href="{% url 'college_results' %}">
+    <div class="stat-icon teal"><i class="fa-solid fa-square-poll-vertical"></i></div>
+    <div class="stat-body"><h3>Published Results</h3><p class="stat-value">{{ published_results_count }}</p><span class="stat-sub">Visible to students</span></div>
+  </a>
   <div class="stat-card">
     <div class="stat-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div>
     <div class="stat-body"><h3>Avg Overall Performance</h3><p class="stat-value">{{ avg_performance }}%</p></div>
@@ -23,6 +27,14 @@
     <div class="stat-icon teal"><i class="fa-solid fa-user-check"></i></div>
     <div class="stat-body"><h3>Placement Eligible</h3><p class="stat-value">{{ placement_eligible }}</p></div>
   </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Recently Published Results</h3><a href="{% url 'college_results' %}">Manage Results</a></div>
+  <table class="data-table"><thead><tr><th>Student</th><th>Exam</th><th>Subject</th><th>Score</th><th>Percentage</th></tr></thead><tbody>
+    {% for result in recent_results %}<tr><td>{{ result.student.user.get_full_name|default:result.student.user.username }}</td><td>{{ result.exam_name }}</td><td>{{ result.subject }}</td><td>{{ result.score }} / {{ result.max_score }}</td><td>{{ result.percentage }}%</td></tr>
+    {% empty %}<tr><td colspan="5">No results have been published yet.</td></tr>{% endfor %}
+  </tbody></table>
 </section>
 
 <section class="grid-2">

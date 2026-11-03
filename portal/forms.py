@@ -3,7 +3,8 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 
 from .models import (
-    AdminInvoice, CollegeAssessment, CollegeProfile, CollegeProgram, CollegeQuickReport, CollegeStudent,
+    AdminInvoice, CollegeAssessment, CollegeProfile, CollegeProgram, CollegeQuickReport, CollegeResult, CollegeStudent,
+    DepartmentResultDocument,
     Department, Faculty, OnlineTest, PlacementRecord, SyllabusCoverage,
 )
 
@@ -167,6 +168,47 @@ class CollegeAssessmentForm(forms.ModelForm):
             "date": forms.DateInput(attrs={"type": "date"}),
             "avg_score": forms.NumberInput(attrs={"min": "0", "max": "100", "step": "0.1"}),
         }
+
+
+class CollegeResultForm(forms.ModelForm):
+    class Meta:
+        model = CollegeResult
+        fields = ["student", "exam_name", "subject", "score", "max_score", "published_at", "remarks"]
+        widgets = {
+            "score": forms.NumberInput(attrs={"min": "0", "step": "0.01"}),
+            "max_score": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
+            "published_at": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, college=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["student"].queryset = (
+            StudentProfile.objects.filter(college=college).select_related("user").order_by("user__first_name", "user__last_name", "user__username")
+            if college else StudentProfile.objects.none()
+        )
+
+    def clean(self):
+        cleaned = super().clean()
+        score = cleaned.get("score")
+        max_score = cleaned.get("max_score")
+        if score is not None and max_score is not None and score > max_score:
+            self.add_error("score", "Score cannot be greater than the maximum score.")
+        return cleaned
+
+
+class DepartmentResultDocumentForm(forms.ModelForm):
+    class Meta:
+        model = DepartmentResultDocument
+        fields = ["department", "title", "pdf"]
+        widgets = {"pdf": forms.ClearableFileInput(attrs={"accept": "application/pdf"})}
+
+    def clean_pdf(self):
+        uploaded = self.cleaned_data["pdf"]
+        if uploaded and (not uploaded.name.lower().endswith(".pdf") or uploaded.content_type not in {"application/pdf", "application/x-pdf"}):
+            raise forms.ValidationError("Upload a PDF file only.")
+        if uploaded and uploaded.size > 10 * 1024 * 1024:
+            raise forms.ValidationError("The PDF must be 10 MB or smaller.")
+        return uploaded
 
 
 class FacultyForm(forms.ModelForm):
