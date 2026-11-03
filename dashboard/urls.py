@@ -40,6 +40,7 @@ urlpatterns = [
         name="password_reset_complete",
     ),
     path("register/", views.student_register_view, name="student_register"),
+    path("trainer-register/", views.trainer_register_view, name="trainer_register"),
     path("logout/", views.logout_view, name="logout"),
 
     path("profile/", views.profile_view, name="profile"),

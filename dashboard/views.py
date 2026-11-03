@@ -22,7 +22,7 @@ from .models import (
     Skill,
     DailyAttendance,
 )
-from portal.models import AdminStudentRecord, CollegeProfile, CollegeResult, DepartmentResultDocument, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
+from portal.models import AdminStudentRecord, CollegeProfile, CollegeResult, DepartmentResultDocument, OnlineTest, OnlineTestAnswer, OnlineTestAttempt, TrainerProfile
 from portal.forms import ACADEMIC_PROGRAMME_CHOICES
 
 
@@ -185,6 +185,52 @@ def student_register_view(request):
         } if request.method == "POST" else {},
         "colleges": colleges,
         "departments_by_college": departments_by_college,
+    })
+
+
+def trainer_register_view(request):
+    if request.user.is_authenticated:
+        return _redirect_for_role(request.user)
+
+    colleges = CollegeProfile.objects.filter(
+        user__admin_profile__isnull=True,
+        user__is_staff=False,
+        workspace__isnull=True,
+        user__is_active=True,
+    ).order_by("college_name", "pk")
+    if request.method == "POST":
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "")
+        college_id = request.POST.get("college_id", "").strip()
+        college = colleges.filter(pk=college_id).first() if college_id.isdecimal() else None
+
+        if not username or not password:
+            messages.error(request, "Username and password are required.")
+        elif college is None:
+            messages.error(request, "Choose an active college.")
+        elif User.objects.filter(username=username).exists():
+            messages.error(request, f"Username '{username}' is already taken.")
+        else:
+            user = User.objects.create_user(
+                username=username,
+                password=password,
+                first_name=request.POST.get("first_name", "").strip(),
+                last_name=request.POST.get("last_name", "").strip(),
+                email=request.POST.get("email", "").strip(),
+                is_active=False,
+            )
+            TrainerProfile.objects.create(
+                user=user,
+                college=college,
+                domain=request.POST.get("domain", "").strip(),
+                phone=request.POST.get("phone", "").strip(),
+            )
+            messages.success(request, "Trainer account created. Please wait for administrator approval before signing in.")
+            return redirect("login")
+
+    return render(request, "dashboard/trainer_register.html", {
+        "colleges": colleges,
+        "form_values": {"college_id": request.POST.get("college_id", "").strip()} if request.method == "POST" else {},
     })
 
 
