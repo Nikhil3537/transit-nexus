@@ -443,6 +443,7 @@ class CollegeResult(models.Model):
     student = models.ForeignKey(
         StudentProfile, on_delete=models.CASCADE, related_name="college_results",
     )
+    semester = models.CharField(max_length=100, default="", blank=True)
     exam_name = models.CharField(max_length=150)
     subject = models.CharField(max_length=120)
     score = models.DecimalField(max_digits=6, decimal_places=2)
@@ -465,7 +466,7 @@ class CollegeResult(models.Model):
 
 class DepartmentResultDocument(models.Model):
     college = models.ForeignKey(CollegeProfile, on_delete=models.CASCADE, related_name="result_documents")
-    department = models.CharField(max_length=150)
+    semester = models.CharField(max_length=100, default="", blank=True)
     title = models.CharField(max_length=150)
     pdf = models.FileField(upload_to="college-results/%Y/%m/")
     uploaded_at = models.DateTimeField(auto_now_add=True)

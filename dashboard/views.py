@@ -668,7 +668,7 @@ def results_reports_view(request):
     published_results = list(profile.college_results.filter(college=profile.college) if profile.college_id else [])
     result_documents = DepartmentResultDocument.objects.filter(
         college=profile.college,
-    ).filter(department__iexact=profile.department) if profile.college_id and profile.department else DepartmentResultDocument.objects.none()
+    ).filter(semester__iexact=profile.semester_label) if profile.college_id and profile.semester_label else DepartmentResultDocument.objects.none()
 
     trend_source = sorted(assessments, key=lambda a: a.date)[-6:]
     trend = {

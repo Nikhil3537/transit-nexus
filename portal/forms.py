@@ -174,7 +174,7 @@ class CollegeAssessmentForm(forms.ModelForm):
 class CollegeResultForm(forms.ModelForm):
     class Meta:
         model = CollegeResult
-        fields = ["student", "exam_name", "subject", "score", "max_score", "published_at", "remarks"]
+        fields = ["student", "semester", "exam_name", "subject", "score", "max_score", "published_at", "remarks"]
         widgets = {
             "score": forms.NumberInput(attrs={"min": "0", "step": "0.01"}),
             "max_score": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
@@ -200,7 +200,7 @@ class CollegeResultForm(forms.ModelForm):
 class DepartmentResultDocumentForm(forms.ModelForm):
     class Meta:
         model = DepartmentResultDocument
-        fields = ["department", "title", "pdf"]
+        fields = ["semester", "title", "pdf"]
         widgets = {"pdf": forms.ClearableFileInput(attrs={"accept": "application/pdf"})}
 
     def clean_pdf(self):

@@ -3,14 +3,14 @@
 {% block content %}
 {% if messages %}{% for message in messages %}<p class="alert-{{ message.tags }}">{{ message }}</p>{% endfor %}{% endif %}
 <section class="panel">
-  <div class="panel-head"><h3>Department Results PDF</h3><span>Students in the selected department can view it</span></div>
+  <div class="panel-head"><h3>Semester Results PDF</h3><span>Students in the selected semester can view it</span></div>
   <form method="post" enctype="multipart/form-data" class="form-grid">
     {% csrf_token %}<input type="hidden" name="action" value="upload_document">
     {% for field in document_form %}<label>{{ field.label }}{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>{% endfor %}
     <div><button class="btn btn-primary" type="submit">Upload Results PDF</button></div>
   </form>
-  <table class="data-table"><thead><tr><th>Department</th><th>Title</th><th>Uploaded</th><th>File</th><th></th></tr></thead><tbody>
-    {% for document in documents %}<tr><td>{{ document.department }}</td><td>{{ document.title }}</td><td>{{ document.uploaded_at|date:"d M Y" }}</td><td><a href="{% url 'download_result_document' document.pk %}" target="_blank">View PDF</a></td><td><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="action" value="delete_document"><input type="hidden" name="document_id" value="{{ document.pk }}"><button class="btn btn-danger" type="submit">Delete</button></form></td></tr>
+  <table class="data-table"><thead><tr><th>Semester</th><th>Title</th><th>Uploaded</th><th>File</th><th></th></tr></thead><tbody>
+    {% for document in documents %}<tr><td>{{ document.semester }}</td><td>{{ document.title }}</td><td>{{ document.uploaded_at|date:"d M Y" }}</td><td><a href="{% url 'download_result_document' document.pk %}" target="_blank">View PDF</a></td><td><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="action" value="delete_document"><input type="hidden" name="document_id" value="{{ document.pk }}"><button class="btn btn-danger" type="submit">Delete</button></form></td></tr>
     {% empty %}<tr><td colspan="5">No department results PDFs uploaded yet.</td></tr>{% endfor %}
   </tbody></table>
 </section>
