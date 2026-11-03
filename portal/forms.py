@@ -212,6 +212,11 @@ class DepartmentResultDocumentForm(forms.ModelForm):
         return uploaded
 
 
+class TrainerFeedbackForm(forms.Form):
+    rating = forms.IntegerField(min_value=1, max_value=5, initial=5, label="Rating (1–5)")
+    comments = forms.CharField(widget=forms.Textarea(attrs={"rows": 4}), label="Feedback")
+
+
 class FacultyForm(forms.ModelForm):
     rating = forms.DecimalField(required=False, min_value=0, max_value=5)
     classes_taken = forms.IntegerField(required=False, min_value=0)

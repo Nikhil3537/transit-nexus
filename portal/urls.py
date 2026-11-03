@@ -45,6 +45,11 @@ urlpatterns = [
 
     # Trainer
     path("trainer-dashboard/", views.trainer_dashboard, name="trainer_dashboard"),
+    path("trainer/colleges/", views.trainer_colleges, name="trainer_colleges"),
+    path("trainer/schedule/", views.trainer_schedule, name="trainer_schedule"),
+    path("trainer/feedback/", views.trainer_feedback, name="trainer_feedback"),
+    path("trainer/payments/", views.trainer_payments, name="trainer_payments"),
+    path("trainer/memberships/", views.trainer_memberships, name="trainer_memberships"),
     path("trainer/batches/", views.trainer_batches, name="trainer_batches"),
     path("trainer/attendance/", views.trainer_attendance, name="trainer_attendance"),
     path("trainer/assessments/", views.trainer_assessments, name="trainer_assessments"),

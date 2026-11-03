@@ -23,13 +23,14 @@ from .models import (
     CollegeStudent, CollegeAssessment, CollegeResult, DepartmentResultDocument, CollegeProgram, PlacementRecord,
     Faculty, SyllabusCoverage, CollegeNotification,
     BatchAttendanceEntry, TrainerAssignment, TrainerStudent, QuestionBankItem,
-    TrainerCalendarEvent, TrainerAvailability, OnlineTest, OnlineTestQuestion,
+    TrainerCalendarEvent, TrainerPayment, TrainerMembership, TrainerFeedback,
+    TrainerAvailability, OnlineTest, OnlineTestQuestion,
     OnlineTestAttempt, OnlineTestAnswer, JobDrive, Offer,
 )
 from .forms import (
     CollegeAssessmentForm, CollegeExternalTestForm, CollegeInvoiceForm, CollegeProgramForm, CollegeQuickReportForm, CollegeResultForm, DepartmentResultDocumentForm,
     CollegeInvoiceForm, CollegeQuickReportForm, CollegeStudentAccountForm, CollegeStudentForm,
-    DepartmentAttendanceForm, FacultyForm, OnlineTestForm, PlacementRecordForm, SyllabusCoverageForm,
+    DepartmentAttendanceForm, FacultyForm, OnlineTestForm, PlacementRecordForm, SyllabusCoverageForm, TrainerFeedbackForm,
 )
 from dashboard.models import DailyAttendance, StudentProfile
 
@@ -64,6 +65,8 @@ COLLEGE_NAV = [
 
 TRAINER_NAV = [
     ("fa-solid fa-house", "Dashboard", "trainer_dashboard"),
+    ("fa-solid fa-building-columns", "Assigned Colleges", "trainer_colleges"),
+    ("fa-solid fa-calendar-days", "Scheduled Dates", "trainer_schedule"),
     ("fa-solid fa-people-group", "My Batches", "trainer_batches"),
     ("fa-solid fa-calendar-check", "Attendance", "trainer_attendance"),
     ("fa-solid fa-clipboard-list", "Assessments", "trainer_assessments"),
@@ -71,7 +74,9 @@ TRAINER_NAV = [
     ("fa-solid fa-chart-line", "Student Performance", "trainer_students"),
     ("fa-solid fa-database", "Question Bank", "trainer_question_bank"),
     ("fa-solid fa-file-lines", "Reports", "trainer_reports"),
-    ("fa-solid fa-calendar-days", "Training Calendar", "trainer_calendar"),
+    ("fa-solid fa-comment-dots", "Feedback Forms", "trainer_feedback"),
+    ("fa-solid fa-wallet", "Payments", "trainer_payments"),
+    ("fa-solid fa-id-card", "Memberships", "trainer_memberships"),
     ("fa-solid fa-gear", "Settings", "trainer_settings"),
 ]
 
@@ -650,7 +655,7 @@ def college_dashboard(request):
     return render(request, "portal/college_dashboard.html", context)
 
 
-@login_required
+@trainer_account_required
 def trainer_dashboard(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     batches = profile.batches.all()
@@ -666,6 +671,10 @@ def trainer_dashboard(request):
         "labels": [t.month_label for t in trend],
         "values": [float(t.avg_percentage) for t in trend],
     })
+    assigned_colleges = list(CollegeProfile.objects.filter(pk=profile.college_id)) if profile.college_id else []
+    test_colleges = CollegeProfile.objects.filter(online_tests__trainer=profile).distinct()
+    assigned_colleges.extend(college for college in test_colleges if college.pk not in {item.pk for item in assigned_colleges})
+    scheduled_dates = profile.calendar_events.filter(date__gte=timezone.localdate())[:5]
 
     context = {
         "profile": profile,
@@ -682,8 +691,70 @@ def trainer_dashboard(request):
         "assessments": assessments,
         "pending_tasks": pending_tasks,
         "trend_json": trend_json,
+        "assigned_colleges": assigned_colleges,
+        "scheduled_dates": scheduled_dates,
+        "payments": profile.payments.all()[:5],
+        "membership": profile.memberships.first(),
     }
     return render(request, "portal/trainer_dashboard.html", context)
+
+
+@trainer_account_required
+def trainer_colleges(request):
+    profile = request.user.trainer_profile
+    colleges = list(CollegeProfile.objects.filter(pk=profile.college_id)) if profile.college_id else []
+    for college in CollegeProfile.objects.filter(online_tests__trainer=profile).distinct():
+        if college.pk not in {item.pk for item in colleges}:
+            colleges.append(college)
+    ctx = _page_ctx(profile, TRAINER_NAV, "Assigned Colleges", "Assigned Colleges",
+                    f"{len(colleges)} colleges assigned to you", "Trainer", colleges=colleges)
+    return render(request, "portal/trainer_colleges.html", ctx)
+
+
+@trainer_account_required
+def trainer_schedule(request):
+    profile = request.user.trainer_profile
+    events = profile.calendar_events.filter(date__gte=timezone.localdate())
+    availability = profile.availability.filter(date__gte=timezone.localdate())
+    ctx = _page_ctx(profile, TRAINER_NAV, "Scheduled Dates", "Scheduled Dates",
+                    "Your upcoming sessions and availability", "Trainer",
+                    events=events, availability=availability)
+    return render(request, "portal/trainer_schedule.html", ctx)
+
+
+@trainer_account_required
+def trainer_feedback(request):
+    profile = request.user.trainer_profile
+    form = TrainerFeedbackForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        TrainerFeedback.objects.create(
+            trainer=profile, college=profile.college,
+            rating=form.cleaned_data["rating"], comments=form.cleaned_data["comments"],
+        )
+        messages.success(request, "Your feedback was submitted successfully.")
+        return redirect("trainer_feedback")
+    ctx = _page_ctx(profile, TRAINER_NAV, "Feedback Forms", "Feedback Forms",
+                    "Share feedback about your Transit Nexus experience", "Trainer",
+                    form=form, feedback_entries=profile.feedback_entries.all()[:10])
+    return render(request, "portal/trainer_feedback.html", ctx)
+
+
+@trainer_account_required
+def trainer_payments(request):
+    profile = request.user.trainer_profile
+    payments = profile.payments.all()
+    ctx = _page_ctx(profile, TRAINER_NAV, "Payments", "Payments",
+                    "Your trainer payment history", "Trainer", payments=payments)
+    return render(request, "portal/trainer_payments.html", ctx)
+
+
+@trainer_account_required
+def trainer_memberships(request):
+    profile = request.user.trainer_profile
+    memberships = profile.memberships.all()
+    ctx = _page_ctx(profile, TRAINER_NAV, "Memberships", "Memberships",
+                    "Your Transit Nexus membership plans", "Trainer", memberships=memberships)
+    return render(request, "portal/trainer_memberships.html", ctx)
 
 
 @login_required

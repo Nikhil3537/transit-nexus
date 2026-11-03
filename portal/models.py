@@ -585,6 +585,41 @@ class TrainerCalendarEvent(models.Model):
         ordering = ["date"]
 
 
+class TrainerPayment(models.Model):
+    STATUS_CHOICES = [("paid", "Paid"), ("pending", "Pending")]
+    trainer = models.ForeignKey(TrainerProfile, on_delete=models.CASCADE, related_name="payments")
+    description = models.CharField(max_length=150)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+
+    class Meta:
+        ordering = ["-payment_date", "-id"]
+
+
+class TrainerMembership(models.Model):
+    STATUS_CHOICES = [("active", "Active"), ("expired", "Expired"), ("pending", "Pending")]
+    trainer = models.ForeignKey(TrainerProfile, on_delete=models.CASCADE, related_name="memberships")
+    plan_name = models.CharField(max_length=120)
+    starts_on = models.DateField()
+    expires_on = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+
+    class Meta:
+        ordering = ["-starts_on"]
+
+
+class TrainerFeedback(models.Model):
+    trainer = models.ForeignKey(TrainerProfile, on_delete=models.CASCADE, related_name="feedback_entries")
+    college = models.ForeignKey(CollegeProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name="trainer_feedback")
+    rating = models.PositiveIntegerField(default=5)
+    comments = models.TextField()
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+
+
 # =========================================================
 # COMPANY — extra sub-page models
 # =========================================================
