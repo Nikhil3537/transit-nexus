@@ -906,15 +906,15 @@ def admin_trainers(request):
     admin_profile, _ = AdminProfile.objects.get_or_create(user=request.user)
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
-        password = request.POST.get("password", "")
+        password = request.POST.get("password", "") or secrets.token_urlsafe(10)
         email = request.POST.get("email", "").strip()
         first_name = request.POST.get("first_name", "").strip()
         last_name = request.POST.get("last_name", "").strip()
         phone = request.POST.get("phone", "").strip()
         domain = request.POST.get("domain", "").strip()
         college_id = request.POST.get("college", "").strip()
-        if not username or not password or not first_name or not email or not domain:
-            messages.error(request, "Username, password, name, email, and domain are required.")
+        if not username or not first_name or not email or not domain:
+            messages.error(request, "Username, name, email, and domain are required.")
         elif User.objects.filter(username=username).exists():
             messages.error(request, f"Username '{username}' is already in use.")
         elif User.objects.filter(email__iexact=email).exists():
@@ -925,12 +925,35 @@ def admin_trainers(request):
             with transaction.atomic():
                 user = User.objects.create_user(
                     username=username, password=password, email=email,
-                    first_name=first_name, last_name=last_name, is_active=False,
+                    first_name=first_name, last_name=last_name, is_active=True,
                 )
                 college = CollegeProfile.objects.filter(pk=college_id).first() if college_id else None
                 TrainerProfile.objects.create(user=user, college=college, domain=domain, phone=phone)
-            messages.success(request, f"Trainer '{user.get_full_name() or user.username}' was created. Approve the account in Users & Roles to allow sign in.")
-            return redirect("admin_trainers")
+            portal_url = request.build_absolute_uri(reverse("login"))
+            send_mail(
+                subject="Your Transit Nexus trainer portal access",
+                message=(
+                    f"Hello {user.get_full_name() or user.username},\n\n"
+                    "Your Transit Nexus trainer account is ready.\n\n"
+                    f"Portal: {portal_url}\nTrainer ID: {user.username}\n"
+                    f"Temporary password: {password}\n\nKeep these credentials private."
+                ),
+                from_email=None,
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
+            response = HttpResponse(
+                _student_credentials_pdf(
+                    student=user,
+                    college_name=college.college_name if college else "Transit Nexus",
+                    portal_url=portal_url,
+                    temporary_password=password,
+                    account_type="trainer",
+                ),
+                content_type="application/pdf",
+            )
+            response["Content-Disposition"] = f'attachment; filename="transit-nexus-{user.username}-trainer-credentials.pdf"'
+            return response
 
     trainers = TrainerProfile.objects.select_related("user", "college").order_by(
         "user__first_name", "user__last_name", "user__username"
@@ -1845,8 +1868,8 @@ def _college_student_rows(profile, department_scope=""):
     return rows
 
 
-def _student_credentials_pdf(*, student, college_name, portal_url, temporary_password):
-    """Build a one-page credential handout for a newly created student account."""
+def _student_credentials_pdf(*, student, college_name, portal_url, temporary_password, account_type="student"):
+    """Build a one-page credential handout for a newly created portal account."""
     from io import BytesIO
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER
@@ -1875,7 +1898,7 @@ def _student_credentials_pdf(*, student, college_name, portal_url, temporary_pas
     story = [
         Paragraph("TRANSIT NEXUS", title),
         Spacer(1, 4 * mm),
-        Paragraph("Student Portal Credentials", subtitle),
+        Paragraph(f"{account_type.title()} Portal Credentials", subtitle),
         Spacer(1, 12 * mm),
         Paragraph(f"Welcome, {student.get_full_name() or student.username}", styles["Heading2"]),
         Paragraph(f"College: {college_name}", value),
@@ -1902,7 +1925,7 @@ def _student_credentials_pdf(*, student, college_name, portal_url, temporary_pas
         Spacer(1, 12 * mm),
         Paragraph("Security instruction", styles["Heading3"]),
         Paragraph(
-            "Use these credentials for your first sign-in. Transit Nexus will require you to change the temporary password before you can access the student portal. Keep this document private and do not share your password.",
+            f"Use these credentials to sign in to the Transit Nexus {account_type} dashboard. Keep this document private and do not share your password.",
             value,
         ),
     ])
