@@ -26,27 +26,29 @@
 </section>
 <section class="panel">
   <div class="panel-head">
-    <h3>Registered Student Attendance · {{ today|date:"M j, Y" }}</h3>
-    <span class="muted">{{ session_label }}{% if selected_department %} · {{ selected_department }}{% endif %}</span>
+    <div><h3>Registered Student Attendance · {{ today|date:"M j, Y" }}</h3><span class="muted">{{ session_label }}{% if selected_department %} · {{ selected_department }}{% endif %}</span></div>
+    <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+      <button type="button" class="btn btn-secondary" id="markAllPresent">Mark all present</button>
+      <button type="button" class="btn btn-secondary" id="markAllAbsent">Mark all absent</button>
+    </div>
   </div>
+  <form method="post" id="attendanceSheetForm">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_attendance_sheet">
   <table class="data-table">
-    <thead><tr><th>Student</th><th>Department</th><th>Attendance</th></tr></thead>
+    <thead><tr><th>Student</th><th>Department</th><th>Present</th></tr></thead>
     <tbody>
-    {% for student in students %}
+      {% for student in students %}
       {% with attendance=student.today_attendance %}
       <tr>
         <td>{{ student.user.get_full_name|default:student.user.username }}</td>
         <td>{{ student.department|default:"—" }}</td>
         <td>
-          <form method="post" class="attendance-toggle-form">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="toggle_student_attendance">
-            <input type="hidden" name="student_id" value="{{ student.pk }}">
-            <button class="attendance-toggle {% if attendance and attendance.is_present %}is-on{% else %}is-off{% endif %}" type="submit" role="switch" aria-checked="{% if attendance and attendance.is_present %}true{% else %}false{% endif %}" aria-label="Toggle attendance for {{ student.user.get_full_name|default:student.user.username }}">
-              <span class="attendance-toggle-track" aria-hidden="true"><span class="attendance-toggle-knob"></span></span>
-              <span>{% if attendance and attendance.is_present %}Present{% else %}Absent{% endif %}</span>
-            </button>
-          </form>
+          <input type="hidden" name="attendance_student_ids" value="{{ student.pk }}">
+          <label style="display:inline-flex;align-items:center;gap:.5rem;cursor:pointer;">
+            <input class="attendance-student-checkbox" type="checkbox" name="present_student_ids" value="{{ student.pk }}" {% if attendance and attendance.is_present %}checked{% endif %}>
+            <span class="attendance-status-label">{% if attendance and attendance.is_present %}Present{% else %}Absent{% endif %}</span>
+          </label>
         </td>
       </tr>
       {% endwith %}
@@ -55,6 +57,8 @@
     {% endfor %}
     </tbody>
   </table>
+  {% if students %}<button class="btn btn-primary" type="submit" style="margin-top:1rem;"><i class="fa-solid fa-floppy-disk"></i> Save attendance</button>{% endif %}
+  </form>
 </section>
 <section class="grid-2">
   <div class="panel">
@@ -75,6 +79,22 @@
 </section>
 {% endblock %}
 {% block page_scripts %}
+<script>
+  const attendanceChecks = [...document.querySelectorAll('.attendance-student-checkbox')];
+  const updateAttendanceLabels = () => attendanceChecks.forEach((checkbox) => {
+    const label = checkbox.parentElement.querySelector('.attendance-status-label');
+    if (label) label.textContent = checkbox.checked ? 'Present' : 'Absent';
+  });
+  document.getElementById('markAllPresent')?.addEventListener('click', () => {
+    attendanceChecks.forEach((checkbox) => { checkbox.checked = true; });
+    updateAttendanceLabels();
+  });
+  document.getElementById('markAllAbsent')?.addEventListener('click', () => {
+    attendanceChecks.forEach((checkbox) => { checkbox.checked = false; });
+    updateAttendanceLabels();
+  });
+  attendanceChecks.forEach((checkbox) => checkbox.addEventListener('change', updateAttendanceLabels));
+</script>
 <script>
   const trend = {{ trend_json|safe }};
   new Chart(document.getElementById('attTrend'), {

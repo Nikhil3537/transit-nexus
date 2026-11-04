@@ -2116,6 +2116,31 @@ def college_attendance(request):
             f"&session={quote(session_label)}&department={quote(selected_department)}"
         )
 
+    if request.method == "POST" and request.POST.get("action") == "save_attendance_sheet":
+        visible_student_ids = {str(student.pk) for student in students}
+        submitted_student_ids = set(request.POST.getlist("attendance_student_ids"))
+        present_student_ids = set(request.POST.getlist("present_student_ids"))
+        submitted_student_ids &= visible_student_ids
+        present_student_ids &= submitted_student_ids
+        with transaction.atomic():
+            for student in students:
+                if str(student.pk) not in submitted_student_ids:
+                    continue
+                DailyAttendance.objects.update_or_create(
+                    student=student,
+                    date=selected_date,
+                    session_label=session_label,
+                    defaults={"is_present": str(student.pk) in present_student_ids},
+                )
+        messages.success(
+            request,
+            f"Attendance saved for {len(submitted_student_ids)} student(s) for {selected_date.isoformat()}.",
+        )
+        return redirect(
+            f"{reverse('college_attendance')}?date={selected_date.isoformat()}"
+            f"&session={quote(session_label)}&department={quote(selected_department)}"
+        )
+
     if request.method == "POST" and request.POST.get("action") == "toggle_student_attendance":
         student_id = request.POST.get("student_id", "")
         student = profile.student_accounts.filter(pk=student_id).first() if student_id.isdecimal() else None
