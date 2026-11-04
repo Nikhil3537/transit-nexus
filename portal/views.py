@@ -856,6 +856,33 @@ def admin_college_detail(request, college_id):
     }
     if request.method == "POST":
         action = request.POST.get("action", "")
+        if action == "delete_college":
+            if request.POST.get("confirm") != "yes":
+                messages.error(request, "Confirm the college deletion to continue.")
+                return redirect("admin_colleges")
+
+            college_name = college.college_name
+            related_profile_users = list(
+                User.objects.filter(
+                    Q(college_profile__pk=college.pk)
+                    | Q(college_profile__workspace=college)
+                    | Q(profile__college=college)
+                    | Q(trainer_profile__college=college)
+                ).distinct()
+            )
+            with transaction.atomic():
+                PartnerCollege.objects.filter(name__iexact=college_name).delete()
+                for model in (
+                    SupportTicket, AdminProject, SyllabusUpdate,
+                    AdminScheduleItem, AdminStudentRecord, AdminAttendanceSummary,
+                    AdminInvoice,
+                ):
+                    model.objects.filter(college_name__iexact=college_name).delete()
+                college.delete()
+                for user in related_profile_users:
+                    user.delete()
+            messages.success(request, f"College '{college_name}' and all related data were deleted.")
+            return redirect("admin_colleges")
         if action == "delete_architecture_students":
             if request.POST.get("confirm") != "yes":
                 messages.error(request, "Confirm the Architecture student deletion to continue.")

@@ -661,6 +661,32 @@ class PlatformCollegeWorkspaceTests(TestCase):
             self.assertContains(response, visible_record)
         self.assertNotContains(response, "South Student")
 
+    def test_platform_admin_can_delete_entire_college_workspace(self):
+        PartnerCollege.objects.create(name=self.college.college_name)
+        student_user = User.objects.create_user(username="delete-student", password="test-pass")
+        StudentProfile.objects.create(user=student_user, college=self.college)
+        CollegeStudent.objects.create(college=self.college, name="North Student", department="CSE")
+        AdminStudentRecord.objects.create(
+            name="Imported North Student", college_name=self.college.college_name,
+            department="CSE",
+        )
+        AdminInvoice.objects.create(
+            invoice_no="NORTH-DELETE", college_name=self.college.college_name,
+            amount=1000, issued_date="2026-09-01",
+        )
+
+        response = self.client.post(reverse("admin_college_detail", args=[self.college.pk]), {
+            "action": "delete_college", "confirm": "yes",
+        })
+
+        self.assertRedirects(response, reverse("admin_colleges"))
+        self.assertFalse(CollegeProfile.objects.filter(pk=self.college.pk).exists())
+        self.assertFalse(User.objects.filter(pk=self.college_user.pk).exists())
+        self.assertFalse(User.objects.filter(pk=student_user.pk).exists())
+        self.assertFalse(PartnerCollege.objects.filter(name=self.college.college_name).exists())
+        self.assertFalse(AdminStudentRecord.objects.filter(college_name=self.college.college_name).exists())
+        self.assertFalse(AdminInvoice.objects.filter(college_name=self.college.college_name).exists())
+
     def test_college_page_lists_uploaded_student_accounts(self):
         student_user = User.objects.create_user(
             username="uploaded-student", first_name="Uploaded", last_name="Student",
