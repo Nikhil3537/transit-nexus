@@ -2,14 +2,17 @@ import csv
 import io
 import json
 import time
-from datetime import date
+import secrets
+from datetime import date, datetime
 from functools import wraps
+from urllib.parse import quote
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import OperationalError, connections, transaction
 from django.db.models import Q
-from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -21,17 +24,16 @@ from .models import (
     TrainerProfile, Batch, TrainerAssessment, PendingTask, TrainerTrendPoint,
     CompanyProfile, Candidate, CompanyInterview,
     AdminStudentRecord, AdminAttendanceSummary, AdminInvoice, Announcement,
-    CollegeStudent, CollegeAssessment, CollegeResult, DepartmentResultDocument, CollegeProgram, PlacementRecord,
+    CollegeStudent, CollegeAssessment, CollegeProgram, PlacementRecord,
     Faculty, SyllabusCoverage, CollegeNotification,
     BatchAttendanceEntry, TrainerAssignment, TrainerStudent, QuestionBankItem,
-    TrainerCalendarEvent, TrainerPayment, TrainerMembership, TrainerFeedback,
-    TrainerAvailability, OnlineTest, OnlineTestQuestion,
+    TrainerCalendarEvent, TrainerAvailability, OnlineTest, OnlineTestQuestion,
     OnlineTestAttempt, OnlineTestAnswer, JobDrive, Offer,
 )
 from .forms import (
-    CollegeAssessmentForm, CollegeExternalTestForm, CollegeInvoiceForm, CollegeProgramForm, CollegeQuickReportForm, CollegeResultForm, DepartmentResultDocumentForm,
+    CollegeAssessmentForm, CollegeExternalTestForm, CollegeInvoiceForm, CollegeProgramForm, CollegeQuickReportForm,
     CollegeInvoiceForm, CollegeQuickReportForm, CollegeStudentAccountForm, CollegeStudentForm,
-    DepartmentAttendanceForm, FacultyForm, OnlineTestForm, PlacementRecordForm, SyllabusCoverageForm, TrainerFeedbackForm,
+    DepartmentAttendanceForm, FacultyForm, OnlineTestForm, PlacementRecordForm, SyllabusCoverageForm,
 )
 from dashboard.models import DailyAttendance, StudentProfile
 
@@ -52,7 +54,6 @@ COLLEGE_NAV = [
     ("fa-solid fa-sitemap", "Department Overview", "college_departments"),
     ("fa-solid fa-user-graduate", "Student Performance", "college_students"),
     ("fa-solid fa-clipboard-list", "Assessments", "college_assessments"),
-    ("fa-solid fa-square-poll-vertical", "Results", "college_results"),
     ("fa-solid fa-calendar-check", "Attendance", "college_attendance"),
     ("fa-solid fa-chalkboard-user", "Training Programs", "college_programs"),
     ("fa-solid fa-file-invoice-dollar", "Payments", "college_payments"),
@@ -66,8 +67,6 @@ COLLEGE_NAV = [
 
 TRAINER_NAV = [
     ("fa-solid fa-house", "Dashboard", "trainer_dashboard"),
-    ("fa-solid fa-building-columns", "Assigned Colleges", "trainer_colleges"),
-    ("fa-solid fa-calendar-days", "Scheduled Dates", "trainer_schedule"),
     ("fa-solid fa-people-group", "My Batches", "trainer_batches"),
     ("fa-solid fa-calendar-check", "Attendance", "trainer_attendance"),
     ("fa-solid fa-clipboard-list", "Assessments", "trainer_assessments"),
@@ -75,9 +74,7 @@ TRAINER_NAV = [
     ("fa-solid fa-chart-line", "Student Performance", "trainer_students"),
     ("fa-solid fa-database", "Question Bank", "trainer_question_bank"),
     ("fa-solid fa-file-lines", "Reports", "trainer_reports"),
-    ("fa-solid fa-comment-dots", "Feedback Forms", "trainer_feedback"),
-    ("fa-solid fa-wallet", "Payments", "trainer_payments"),
-    ("fa-solid fa-id-card", "Memberships", "trainer_memberships"),
+    ("fa-solid fa-calendar-days", "Training Calendar", "trainer_calendar"),
     ("fa-solid fa-gear", "Settings", "trainer_settings"),
 ]
 
@@ -92,6 +89,31 @@ COMPANY_NAV = [
     ("fa-solid fa-building", "Company Profile", "company_profile"),
     ("fa-solid fa-gear", "Settings", "company_settings"),
 ]
+
+
+def _spreadsheet_rows(uploaded):
+    """Return (headers, row dictionaries) for CSV or Excel uploads."""
+    filename = (uploaded.name or "").casefold()
+    if filename.endswith(".xlsx"):
+        from openpyxl import load_workbook
+
+        workbook = load_workbook(uploaded, read_only=True, data_only=True)
+        values = workbook.active.iter_rows(values_only=True)
+        raw_headers = list(next(values, ()))
+        headers = [str(header or "").strip().lower() for header in raw_headers]
+        rows = [
+            {
+                headers[index]: "" if value is None else str(value).strip()
+                for index, value in enumerate(row)
+                if index < len(headers) and headers[index]
+            }
+            for row in values
+        ]
+        return raw_headers, rows
+
+    content = uploaded.read().decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(content))
+    return reader.fieldnames or [], list(reader)
 
 
 def _nav_context(nav_list, active_label, role_title, role_tagline):
@@ -138,6 +160,7 @@ def college_account_required(view_func):
 
 
 def _college_workspace(request):
+    """Return the shared college data workspace for any college account."""
     account = request.user.college_profile
     return account.workspace or account
 
@@ -154,7 +177,9 @@ def _college_department_scope(request):
 
 
 def _college_role_label(request):
-    return dict(CollegeProfile.ACCOUNT_ROLE_CHOICES).get(_college_account(request).account_role, "College Admin")
+    return dict(CollegeProfile.ACCOUNT_ROLE_CHOICES).get(
+        _college_account(request).account_role, "College Admin"
+    )
 
 
 def trainer_account_required(view_func):
@@ -201,7 +226,6 @@ def admin_dashboard(request):
     colleges = []
     for college in CollegeProfile.objects.select_related("user").filter(
         user__admin_profile__isnull=True, user__is_staff=False,
-        workspace__isnull=True,
     ):
         partner = partner_by_name.get(college.college_name.casefold())
         colleges.append({
@@ -291,8 +315,6 @@ PREFERRED_DEPARTMENT_ORDER = [
 
 DEPARTMENT_ALIASES = {
     "Engineering": {"Engineering", "ENG"},
-    "Computer Science and Engineering": {"Computer Science and Engineering", "CSE", "Computer Science"},
-    "Electronics and Communication Engineering": {"Electronics and Communication Engineering", "ECE", "Electronics and Communication"},
     "Arts & Commerce": {"Arts & Commerce", "Arts and Commerce", "Commerce"},
     "Pharmacy": {"Pharmacy", "Pharmcy", "B.Pharm"},
     "Allied Health Science": {"Allied Health Science", "Allied Health Sciences"},
@@ -311,15 +333,6 @@ def _canonical_department_name(value):
         if lookup == canonical_name.casefold() or lookup in {alias.casefold() for alias in aliases}:
             return canonical_name
     return raw_name
-
-
-ARCHITECTURE_DEPARTMENT_ALIASES = (
-    "Architecture & Design",
-    "Architecture and Design",
-    "Bachelor of Architecture (B.Arch)",
-    "B.Arch",
-    "Architecture",
-)
 
 
 def _department_sort_key(name):
@@ -355,88 +368,30 @@ def _department_code_for_name(name):
 
 
 def _student_identity_key(name, department=""):
-    return " ".join((name or "").split()).casefold(), _canonical_department_name(department).casefold()
+    """Return a stable key used to avoid showing the same student twice."""
+    normalized_name = " ".join((name or "").split()).casefold()
+    normalized_department = _canonical_department_name(department).casefold()
+    return normalized_name, normalized_department
 
 
 def _college_student_accounts(profile, department_scope=""):
+    """Return one live account per student identity for college-facing lists."""
     accounts = StudentProfile.objects.select_related("user").filter(college=profile)
     if department_scope:
         accounts = accounts.filter(department__iexact=department_scope)
+
     unique_accounts = []
     seen = set()
     for student in accounts.order_by("user__first_name", "user__last_name", "user__username", "pk"):
-        key = _student_identity_key(student.user.get_full_name() or student.user.username, student.department)
+        key = _student_identity_key(
+            student.user.get_full_name() or student.user.username,
+            student.department,
+        )
         if key in seen:
             continue
         seen.add(key)
         unique_accounts.append(student)
     return unique_accounts
-
-
-def _attendance_pdf_response(profile, students, attendance_by_student, selected_date, selected_session):
-    """Build a small dependency-free PDF attendance report."""
-    rows = [
-        f"College Attendance Report: {profile.college_name}",
-        f"Date: {selected_date:%d %b %Y}    Session: {selected_session}",
-        "",
-        "Student                                      Department                 Status",
-        "-" * 88,
-    ]
-    for student in students:
-        record = attendance_by_student.get(student.pk)
-        name = (student.user.get_full_name() or student.user.username)[:42]
-        department = _canonical_department_name(student.department)[:25]
-        status = "Present" if record and record.is_present else "Absent"
-        rows.append(f"{name:<42} {department:<25} {status}")
-    if len(students) == 0:
-        rows.append("No registered students found.")
-
-    def pdf_text(value):
-        value = value.encode("latin-1", "replace").decode("latin-1")
-        return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-
-    page_lines = 48
-    pages = [rows[index:index + page_lines] for index in range(0, len(rows), page_lines)] or [[]]
-    objects = [None, None]
-    page_ids = []
-    font_id = 2 + (2 * len(pages)) + 1
-    for page_lines_data in pages:
-        page_id = len(objects)
-        content_id = page_id + 1
-        page_ids.append(page_id)
-        objects.append(
-            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-            f"/Resources << /Font << /F1 {font_id} 0 R >> >> "
-            f"/Contents {content_id} 0 R >>"
-        )
-        commands = ["BT", "/F1 9 Tf", "50 750 Td"]
-        for line in page_lines_data:
-            commands.append(f"({pdf_text(line)}) Tj")
-            commands.append("0 -14 Td")
-        commands.append("ET")
-        stream = "\n".join(commands).encode("latin-1")
-        objects.append(f"<< /Length {len(stream)} >>\nstream\n{stream.decode('latin-1')}\nendstream")
-
-    assert font_id == len(objects) + 1
-    objects.append("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
-    objects[0] = "<< /Type /Catalog /Pages 2 0 R >>"
-    objects[1] = f"<< /Type /Pages /Kids [{' '.join(f'{page_id} 0 R' for page_id in page_ids)}] /Count {len(page_ids)} >>"
-
-    pdf = bytearray(b"%PDF-1.4\n")
-    offsets = [0]
-    for object_id, value in enumerate(objects):
-        offsets.append(len(pdf))
-        pdf.extend(f"{object_id + 1} 0 obj\n{value}\nendobj\n".encode("latin-1"))
-    xref_offset = len(pdf)
-    pdf.extend(f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode("ascii"))
-    for offset in offsets[1:]:
-        pdf.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
-    pdf.extend(
-        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode("ascii")
-    )
-    response = HttpResponse(bytes(pdf), content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="college-attendance-{selected_date.isoformat()}.pdf"'
-    return response
 
 
 def _admin_student_records_by_name(profile):
@@ -455,24 +410,16 @@ def _unmatched_admin_student_records(profile):
         matching_records = records_by_name.get(student_name, [])
         if matching_records:
             matching_records.pop(0)
-    return [record for records in records_by_name.values() for record in records]
-
-
-def _dedupe_student_rows(rows):
-    """Keep one display row when the same student exists in multiple sources."""
-    unique_rows = []
+    unmatched = []
     seen = set()
-    for row in rows:
-        key = (
-            row["college_name"].strip().casefold(),
-            row["name"].strip().casefold(),
-            row["department"].strip().casefold(),
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        unique_rows.append(row)
-    return unique_rows
+    for records in records_by_name.values():
+        for record in records:
+            key = _student_identity_key(record.name, record.department)
+            if key in seen:
+                continue
+            seen.add(key)
+            unmatched.append(record)
+    return unmatched
 
 
 def _department_summary_rows(profile):
@@ -517,6 +464,7 @@ def _department_summary_rows(profile):
             "live_assessments": 0,
         })
 
+    live_student_keys = set()
     for student in profile.student_accounts.all():
         student_name = (student.user.get_full_name() or student.user.username).strip().casefold()
         matching_records = admin_records_by_name.get(student_name, [])
@@ -526,6 +474,10 @@ def _department_summary_rows(profile):
         )
         if not department_name:
             continue
+        student_key = _student_identity_key(student_name, department_name)
+        if student_key in live_student_keys:
+            continue
+        live_student_keys.add(student_key)
         entry = get_entry(department_name)
         entry["live_students"] += 1
         entry["live_training_hours"] += int(student.total_learning_hours or 0)
@@ -539,20 +491,27 @@ def _department_summary_rows(profile):
             entry["attendance_classes"] += attendance.total_classes
         entry["live_assessments"] += student.assessments.count()
 
-    # Admin records are a fallback for imported students. Once a live student
-    # account exists, unmatched records must not create phantom departments.
-    if not profile.student_accounts.exists():
-        for records in admin_records_by_name.values():
-            for record in records:
-                department_name = _canonical_department_name(record.department) or "Unassigned"
-                entry = get_entry(department_name)
-                entry["live_students"] += 1
-                entry["performance_values"].append(float(record.performance_pct or 0))
+    unmatched_admin_keys = set()
+    for records in admin_records_by_name.values():
+        for record in records:
+            department_name = _canonical_department_name(record.department) or "Unassigned"
+            student_key = _student_identity_key(record.name, department_name)
+            if student_key in live_student_keys or student_key in unmatched_admin_keys:
+                continue
+            unmatched_admin_keys.add(student_key)
+            entry = get_entry(department_name)
+            entry["live_students"] += 1
+            entry["performance_values"].append(float(record.performance_pct or 0))
 
-    for student in profile.students.all():
+    manual_student_keys = set()
+    for student in profile.students.all().order_by("name", "pk"):
         department_name = _canonical_department_name(student.department)
         if not department_name:
             continue
+        student_key = _student_identity_key(student.name, department_name)
+        if student_key in live_student_keys or student_key in manual_student_keys:
+            continue
+        manual_student_keys.add(student_key)
         entry = get_entry(department_name)
         entry["live_students"] += 1
         entry["performance_values"].append(float(student.avg_score or 0))
@@ -599,6 +558,7 @@ def college_dashboard(request):
     if department_scope:
         departments = [d for d in departments if _canonical_department_name(d.name) == department_scope]
 
+    department_scope = _college_department_scope(request)
     scoped_accounts = profile.student_accounts.filter(department__iexact=department_scope) if department_scope else profile.student_accounts
     scoped_students = profile.students.filter(department__iexact=department_scope) if department_scope else profile.students
     scoped_records = _unmatched_admin_student_records(profile)
@@ -640,7 +600,6 @@ def college_dashboard(request):
 
     top_departments = sorted(departments, key=lambda d: _department_sort_key(d.name or d.code))[:3]
     quick_reports = profile.quick_reports.all()
-    published_results = profile.results.select_related("student__user").all()
 
     context = {
         "profile": profile,
@@ -659,13 +618,11 @@ def college_dashboard(request):
         "trend_json": trend_json,
         "top_departments": top_departments,
         "quick_reports": quick_reports,
-        "published_results_count": published_results.count(),
-        "recent_results": published_results[:5],
     }
     return render(request, "portal/college_dashboard.html", context)
 
 
-@trainer_account_required
+@login_required
 def trainer_dashboard(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     batches = profile.batches.all()
@@ -681,10 +638,6 @@ def trainer_dashboard(request):
         "labels": [t.month_label for t in trend],
         "values": [float(t.avg_percentage) for t in trend],
     })
-    assigned_colleges = list(CollegeProfile.objects.filter(pk=profile.college_id)) if profile.college_id else []
-    test_colleges = CollegeProfile.objects.filter(online_tests__trainer=profile).distinct()
-    assigned_colleges.extend(college for college in test_colleges if college.pk not in {item.pk for item in assigned_colleges})
-    scheduled_dates = profile.calendar_events.filter(date__gte=timezone.localdate())[:5]
 
     context = {
         "profile": profile,
@@ -701,70 +654,8 @@ def trainer_dashboard(request):
         "assessments": assessments,
         "pending_tasks": pending_tasks,
         "trend_json": trend_json,
-        "assigned_colleges": assigned_colleges,
-        "scheduled_dates": scheduled_dates,
-        "payments": profile.payments.all()[:5],
-        "membership": profile.memberships.first(),
     }
     return render(request, "portal/trainer_dashboard.html", context)
-
-
-@trainer_account_required
-def trainer_colleges(request):
-    profile = request.user.trainer_profile
-    colleges = list(CollegeProfile.objects.filter(pk=profile.college_id)) if profile.college_id else []
-    for college in CollegeProfile.objects.filter(online_tests__trainer=profile).distinct():
-        if college.pk not in {item.pk for item in colleges}:
-            colleges.append(college)
-    ctx = _page_ctx(profile, TRAINER_NAV, "Assigned Colleges", "Assigned Colleges",
-                    f"{len(colleges)} colleges assigned to you", "Trainer", colleges=colleges)
-    return render(request, "portal/trainer_colleges.html", ctx)
-
-
-@trainer_account_required
-def trainer_schedule(request):
-    profile = request.user.trainer_profile
-    events = profile.calendar_events.filter(date__gte=timezone.localdate())
-    availability = profile.availability.filter(date__gte=timezone.localdate())
-    ctx = _page_ctx(profile, TRAINER_NAV, "Scheduled Dates", "Scheduled Dates",
-                    "Your upcoming sessions and availability", "Trainer",
-                    events=events, availability=availability)
-    return render(request, "portal/trainer_schedule.html", ctx)
-
-
-@trainer_account_required
-def trainer_feedback(request):
-    profile = request.user.trainer_profile
-    form = TrainerFeedbackForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        TrainerFeedback.objects.create(
-            trainer=profile, college=profile.college,
-            rating=form.cleaned_data["rating"], comments=form.cleaned_data["comments"],
-        )
-        messages.success(request, "Your feedback was submitted successfully.")
-        return redirect("trainer_feedback")
-    ctx = _page_ctx(profile, TRAINER_NAV, "Feedback Forms", "Feedback Forms",
-                    "Share feedback about your Transit Nexus experience", "Trainer",
-                    form=form, feedback_entries=profile.feedback_entries.all()[:10])
-    return render(request, "portal/trainer_feedback.html", ctx)
-
-
-@trainer_account_required
-def trainer_payments(request):
-    profile = request.user.trainer_profile
-    payments = profile.payments.all()
-    ctx = _page_ctx(profile, TRAINER_NAV, "Payments", "Payments",
-                    "Your trainer payment history", "Trainer", payments=payments)
-    return render(request, "portal/trainer_payments.html", ctx)
-
-
-@trainer_account_required
-def trainer_memberships(request):
-    profile = request.user.trainer_profile
-    memberships = profile.memberships.all()
-    ctx = _page_ctx(profile, TRAINER_NAV, "Memberships", "Memberships",
-                    "Your Transit Nexus membership plans", "Trainer", memberships=memberships)
-    return render(request, "portal/trainer_memberships.html", ctx)
 
 
 @login_required
@@ -812,7 +703,6 @@ def admin_colleges(request):
     colleges = []
     profiles = CollegeProfile.objects.select_related("user").filter(
         user__admin_profile__isnull=True, user__is_staff=False,
-        workspace__isnull=True,
     )
     for college in profiles:
         partner = partner_by_name.get(college.college_name.casefold())
@@ -840,7 +730,6 @@ def admin_college_detail(request, college_id):
     college = get_object_or_404(
         CollegeProfile.objects.select_related("user").filter(
             user__admin_profile__isnull=True, user__is_staff=False,
-            workspace__isnull=True,
         ),
         pk=college_id,
     )
@@ -857,20 +746,15 @@ def admin_college_detail(request, college_id):
     if request.method == "POST":
         action = request.POST.get("action", "")
         if action == "delete_college":
-            if request.POST.get("confirm") != "yes":
-                messages.error(request, "Confirm the college deletion to continue.")
-                return redirect("admin_colleges")
-
             college_name = college.college_name
-            related_profile_users = list(
+            workspace_users = list(
                 User.objects.filter(
-                    Q(college_profile__pk=college.pk)
-                    | Q(college_profile__workspace=college)
-                    | Q(profile__college=college)
-                    | Q(trainer_profile__college=college)
+                    Q(pk=college.user_id) | Q(college_profile__workspace=college)
                 ).distinct()
             )
             with transaction.atomic():
+                # These older admin records use the college name instead of a
+                # foreign key, so clean them up along with the workspace.
                 PartnerCollege.objects.filter(name__iexact=college_name).delete()
                 for model in (
                     SupportTicket, AdminProject, SyllabusUpdate,
@@ -879,38 +763,10 @@ def admin_college_detail(request, college_id):
                 ):
                     model.objects.filter(college_name__iexact=college_name).delete()
                 college.delete()
-                for user in related_profile_users:
+                for user in workspace_users:
                     user.delete()
-            messages.success(request, f"College '{college_name}' and all related data were deleted.")
+            messages.success(request, f"College '{college_name}' and its data were deleted.")
             return redirect("admin_colleges")
-        if action == "delete_architecture_students":
-            if request.POST.get("confirm") != "yes":
-                messages.error(request, "Confirm the Architecture student deletion to continue.")
-                return redirect(f"{reverse('admin_college_detail', args=[college.pk])}#students")
-
-            architecture_departments = Q()
-            for alias in ARCHITECTURE_DEPARTMENT_ALIASES:
-                architecture_departments |= Q(department__iexact=alias)
-            with transaction.atomic():
-                architecture_accounts = StudentProfile.objects.filter(
-                    college=college,
-                ).filter(architecture_departments)
-                student_user_ids = list(architecture_accounts.values_list("user_id", flat=True))
-                account_count = len(student_user_ids)
-                User.objects.filter(pk__in=student_user_ids).delete()
-
-                manual_count, _ = CollegeStudent.objects.filter(
-                    college=college,
-                ).filter(architecture_departments).delete()
-                imported_count, _ = AdminStudentRecord.objects.filter(
-                    college_name__iexact=college.college_name,
-                ).filter(architecture_departments).delete()
-            messages.success(
-                request,
-                f"Deleted {account_count} student account(s), {manual_count} manual record(s), "
-                f"and {imported_count} imported record(s) from Architecture for {college.college_name}.",
-            )
-            return redirect(f"{reverse('admin_college_detail', args=[college.pk])}#students")
         if action == "toggle_attendance":
             department = college.departments.filter(pk=request.POST.get("department_id", "")).first()
             enabled_value = request.POST.get("enabled", "")
@@ -988,15 +844,6 @@ def admin_college_detail(request, college_id):
                 "attendance_pct": None,
                 "is_account": False,
             })
-    students = _dedupe_student_rows([
-        {
-            "name": student["name"],
-            "college_name": college.college_name,
-            "department": student["department"],
-            **student,
-        }
-        for student in students
-    ])
     students.sort(key=lambda row: (
         _department_sort_key(row["department"]),
         _semester_sort_key(row["semester"]),
@@ -1145,7 +992,6 @@ def admin_students(request):
                 "status": "Active",
                 "has_account": False,
             })
-    student_rows = _dedupe_student_rows(student_rows)
     student_rows.sort(key=lambda row: (
         row["college_name"].casefold(), _department_sort_key(row["department"]),
         _semester_sort_key(row["semester"]), row["name"].casefold(),
@@ -1274,26 +1120,11 @@ def admin_users(request):
             approved_count = pending_users.update(is_active=True)
             messages.success(request, f"Approved {approved_count} pending account(s).")
             return redirect("admin_users")
-        if request.POST.get("action") == "assign_trainer_college":
-            trainer = TrainerProfile.objects.filter(user_id=request.POST.get("user_id", "")).select_related("user").first()
-            college = CollegeProfile.objects.filter(
-                pk=request.POST.get("college_id", ""), workspace__isnull=True,
-            ).first()
-            if trainer is None or college is None:
-                messages.error(request, "Choose a valid trainer and college.")
-            else:
-                trainer.college = college
-                trainer.save(update_fields=["college"])
-                messages.success(request, f"Trainer '{trainer.user.username}' assigned to {college.college_name}.")
-            return redirect("admin_users")
         if request.POST.get("action") == "create":
             username = request.POST.get("username", "").strip()
             password = request.POST.get("password", "")
             role = request.POST.get("role", "student")
             college_name = request.POST.get("college_name", "").strip()
-            department = request.POST.get("department", "").strip()
-            canonical_department = _canonical_department_name(department)
-            allowed_departments = set(PREFERRED_DEPARTMENT_ORDER) | set(DEPARTMENT_ALIASES)
             if not username or not password:
                 messages.error(request, "Username and password are required.")
             elif role == "college" and not college_name:
@@ -1304,10 +1135,15 @@ def admin_users(request):
                 messages.error(request, "College name is required for a Student or Trainer account.")
             elif role == "student" and not request.POST.get("department", "").strip():
                 messages.error(request, "Department is required for a Student account.")
-            elif role == "student" and not CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).exists():
+            elif role == "student" and not CollegeProfile.objects.filter(college_name__iexact=college_name).exists():
                 messages.error(request, "Create the college account before creating its student accounts.")
-            elif role == "student" and canonical_department not in allowed_departments:
-                messages.error(request, "Choose a valid department for the student account.")
+            elif role == "student":
+                department = request.POST.get("department", "").strip()
+                canonical_department = _canonical_department_name(department)
+                allowed_departments = set(PREFERRED_DEPARTMENT_ORDER)
+                if canonical_department not in allowed_departments:
+                    messages.error(request, "Choose a valid department for the student account.")
+                    return redirect("admin_users")
             elif role in {"trainer", "principal", "placement", "hod"} and not CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).exists():
                 messages.error(request, "Create the college account before creating its trainer accounts.")
             elif role == "hod" and not request.POST.get("department", "").strip():
@@ -1317,9 +1153,7 @@ def admin_users(request):
             else:
                 student_college = CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).first() if role == "student" else None
                 trainer_college = CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).first() if role == "trainer" else None
-                # Preserve the department entered by an administrator while
-                # using the canonical value only for validation and grouping.
-                student_department = department if role == "student" else ""
+                student_department = canonical_department if role == "student" else ""
                 user = User.objects.create_user(
                     username=username,
                     password=password,
@@ -1344,18 +1178,26 @@ def admin_users(request):
                 elif role == "trainer":
                     TrainerProfile.objects.create(user=user, college=trainer_college)
                 elif role in {"principal", "placement", "hod"}:
-                    college = CollegeProfile.objects.filter(college_name__iexact=college_name, workspace__isnull=True).first()
+                    college = CollegeProfile.objects.filter(
+                        college_name__iexact=college_name, workspace__isnull=True,
+                    ).first()
                     CollegeProfile.objects.create(
-                        user=user, workspace=college, account_role=role,
+                        user=user,
+                        workspace=college,
+                        account_role=role,
                         department_scope=request.POST.get("department", "").strip() if role == "hod" else "",
-                        college_name=college.college_name, location=college.location,
-                        academic_year=college.academic_year, semester_label=college.semester_label,
+                        college_name=college.college_name,
+                        location=college.location,
+                        academic_year=college.academic_year,
+                        semester_label=college.semester_label,
                     )
                 elif role == "company":
                     CompanyProfile.objects.create(user=user, company_name=user.get_full_name() or username)
                 elif role == "student":
                     StudentProfile.objects.create(
-                        user=user, college=student_college, department=student_department,
+                        user=user,
+                        college=student_college,
+                        department=student_department,
                         phone=request.POST.get("phone", "").strip(),
                     )
                     AdminStudentRecord.objects.create(
@@ -1387,7 +1229,6 @@ def admin_users(request):
     selected_college = request.GET.get("college_filter", "").strip()
     selected_role_tab = request.GET.get("role_tab", "all").strip().lower()
     college_options = list(CollegeProfile.objects.order_by("college_name").values_list("college_name", flat=True).distinct())
-    college_records = CollegeProfile.objects.filter(workspace__isnull=True).order_by("college_name", "pk")
     department_options = PREFERRED_DEPARTMENT_ORDER
     users = User.objects.all().order_by("username")
     rows = []
@@ -1396,7 +1237,9 @@ def admin_users(request):
             role = "Super Admin"
             normalized_role = "admin"
         elif hasattr(u, "college_profile"):
-            role = dict(CollegeProfile.ACCOUNT_ROLE_CHOICES).get(u.college_profile.account_role, "College Admin")
+            role = dict(CollegeProfile.ACCOUNT_ROLE_CHOICES).get(
+                u.college_profile.account_role, "College Admin"
+            )
             normalized_role = "college"
         elif hasattr(u, "trainer_profile"):
             role = "Trainer"
@@ -1415,16 +1258,19 @@ def admin_users(request):
             continue
 
         if selected_college:
-            if role != "Student":
-                continue
-            student_profile = getattr(u, "profile", None)
-            if not student_profile or not student_profile.college or student_profile.college.college_name != selected_college:
+            if role == "Student":
+                student_profile = getattr(u, "profile", None)
+                if not student_profile or not student_profile.college or student_profile.college.college_name != selected_college:
+                    continue
+            elif hasattr(u, "college_profile"):
+                college_profile = u.college_profile
+                college_workspace = college_profile.workspace or college_profile
+                if college_workspace.college_name != selected_college:
+                    continue
+            else:
                 continue
 
-        assigned_college = ""
-        if hasattr(u, "trainer_profile") and u.trainer_profile.college_id:
-            assigned_college = u.trainer_profile.college.college_name
-        rows.append({"user": u, "role": role, "assigned_college": assigned_college})
+        rows.append({"user": u, "role": role})
 
     total_accounts = len(rows)
     student_accounts = sum(1 for row in rows if row["role"] == "Student")
@@ -1434,7 +1280,6 @@ def admin_users(request):
     ctx = _page_ctx(profile, ADMIN_NAV, "Users & Roles", "Users & Roles",
                     f"{total_accounts} total accounts", "Super Admin",
                     rows=rows, college_options=college_options, department_options=department_options,
-                    college_records=college_records,
                     selected_college=selected_college, selected_role_tab=selected_role_tab,
                     total_accounts=total_accounts, student_accounts=student_accounts,
                     college_accounts=college_accounts, pending_accounts=pending_accounts)
@@ -1466,14 +1311,13 @@ def bulk_import(request):
         if role not in templates:
             errors.append("Choose a valid account type.")
         elif not uploaded:
-            errors.append("Choose a CSV file to import.")
+            errors.append("Choose a CSV or Excel file to import.")
         elif uploaded.size > 5 * 1024 * 1024:
             errors.append("The CSV file must be 5 MB or smaller.")
         else:
             try:
-                content = uploaded.read().decode("utf-8-sig")
-                reader = csv.DictReader(io.StringIO(content))
-                headers = [header.strip().lower() for header in (reader.fieldnames or [])]
+                raw_headers, spreadsheet_rows = _spreadsheet_rows(uploaded)
+                headers = [str(header or "").strip().lower() for header in raw_headers]
                 required = {"username", "password"}
                 if role in {"students", "colleges"}:
                     required.add("college_name")
@@ -1487,7 +1331,7 @@ def bulk_import(request):
                 else:
                     rows = []
                     seen_usernames = set()
-                    for row_number, raw_row in enumerate(reader, start=2):
+                    for row_number, raw_row in enumerate(spreadsheet_rows, start=2):
                         row = {
                             (key or "").strip().lower(): (value or "").strip()
                             for key, value in raw_row.items()
@@ -1539,7 +1383,7 @@ def bulk_import(request):
                                             student_college = CollegeProfile.objects.get(college_name__iexact=row["college_name"])
                                             StudentProfile.objects.create(
                                                 user=user, college=student_college, department=row["department"],
-                                                phone=row.get("phone", ""),
+                                                phone=row.get("phone", ""), must_change_password=True,
                                             )
                                             AdminStudentRecord.objects.create(
                                                 name=user.get_full_name() or user.username,
@@ -1574,8 +1418,8 @@ def bulk_import(request):
                             messages.success(request, f"Imported {len(rows)} pending {role} account(s). Review and approve them in Users & Roles.")
                             return redirect("bulk_import")
                         errors.append("The database is busy. Stop any other Django server, shell, or import process and try again.")
-            except (UnicodeDecodeError, csv.Error):
-                errors.append("Could not read that file as a valid UTF-8 CSV. Download a template and try again.")
+            except (UnicodeDecodeError, csv.Error, ValueError, KeyError, ImportError) as error:
+                errors.append(str(error) or "Could not read that file. Use a valid UTF-8 CSV or .xlsx Excel file.")
 
     ctx["errors"] = errors
     ctx["template_roles"] = templates.keys()
@@ -1670,6 +1514,18 @@ COLLEGE_CSV_IMPORTS = {
         "form": CollegeAssessmentForm,
         "model": CollegeAssessment,
     },
+    "student_results": {
+        "filename": "student_results_template.csv",
+        "headers": ["student_id", "department", "semester", "assessment_name", "subject", "score", "date", "status"],
+        "required": {"student_id", "department", "semester", "assessment_name", "subject", "date"},
+        "student_dashboard": True,
+    },
+    "student_attendance": {
+        "filename": "student_attendance_template.csv",
+        "headers": ["student_id", "department", "semester", "date", "session_label", "status"],
+        "required": {"student_id", "department", "semester", "date", "session_label", "status"},
+        "student_dashboard": True,
+    },
     "attendance": {
         "filename": "attendance_template.csv",
         "headers": ["code", "name", "total_students", "attendance_pct", "avg_performance", "assessments_taken", "training_hours"],
@@ -1718,6 +1574,8 @@ COLLEGE_CSV_IMPORTS = {
 
 COLLEGE_UPLOAD_PAGE = {
     "students": "college_students",
+    "student_results": "college_assessments",
+    "student_attendance": "college_attendance",
     "programs": "college_programs",
     "assessments": "college_assessments",
     "attendance": "college_attendance",
@@ -1727,6 +1585,103 @@ COLLEGE_UPLOAD_PAGE = {
     "faculty": "college_faculty",
     "reports": "college_reports",
 }
+
+
+def _import_student_dashboard_rows(request, dataset, config, uploaded):
+    """Import student-linked attendance/results with strict college scoping."""
+    profile = _college_workspace(request)
+    try:
+        raw_headers, spreadsheet_rows = _spreadsheet_rows(uploaded)
+        headers = [str(header or "").strip().lower() for header in raw_headers]
+        if not headers or any(not header for header in headers) or len(headers) != len(set(headers)):
+            raise ValueError("The spreadsheet must have unique, non-empty headers.")
+        missing = sorted(config["required"] - set(headers))
+        if missing:
+            raise ValueError("Missing required columns: " + ", ".join(missing))
+
+        prepared = []
+        errors = []
+        seen_keys = set()
+        for row_number, raw_row in enumerate(spreadsheet_rows, start=2):
+            row = {
+                (key or "").strip().lower(): (value or "").strip()
+                for key, value in raw_row.items() if key is not None
+            }
+            if not any(row.values()):
+                continue
+            student = profile.student_accounts.select_related("user").filter(
+                user__username__iexact=row.get("student_id", ""),
+            ).first()
+            if student is None:
+                errors.append(f"Row {row_number}: student_id is not registered with this college.")
+                continue
+
+            expected_department = _canonical_department_name(student.department)
+            expected_semester = (student.semester_label or profile.semester_label or "").strip()
+            if expected_semester == "Current Semester":
+                expected_semester = profile.semester_label
+            if _canonical_department_name(row.get("department", "")) != expected_department:
+                errors.append(f"Row {row_number}: department does not match student {student.user.username}.")
+            if row.get("semester", "").casefold() != expected_semester.casefold():
+                errors.append(f"Row {row_number}: semester does not match student {student.user.username} ({expected_semester}).")
+
+            try:
+                row_date = datetime.strptime(row.get("date", "")[:10], "%Y-%m-%d").date()
+            except ValueError:
+                errors.append(f"Row {row_number}: date must use YYYY-MM-DD format.")
+                continue
+
+            if dataset == "student_attendance":
+                status = row.get("status", "").casefold()
+                if status not in {"present", "absent"}:
+                    errors.append(f"Row {row_number}: status must be Present or Absent.")
+                    continue
+                key = (student.pk, row_date, row.get("session_label", ""))
+                if key in seen_keys:
+                    errors.append(f"Row {row_number}: duplicate student/date/session row.")
+                seen_keys.add(key)
+                prepared.append((student, row_date, row, status == "present"))
+            else:
+                status = row.get("status", "completed").casefold() or "completed"
+                if status not in {"completed", "pending"}:
+                    errors.append(f"Row {row_number}: result status must be Completed or Pending.")
+                    continue
+                score = row.get("score", "")
+                try:
+                    score_value = float(score) if score else None
+                    if score_value is not None and not 0 <= score_value <= 100:
+                        raise ValueError
+                except ValueError:
+                    errors.append(f"Row {row_number}: score must be between 0 and 100.")
+                    continue
+                prepared.append((student, row_date, row, score_value, status))
+
+        if len(prepared) > 10000:
+            errors.append("A single upload can contain at most 10,000 rows.")
+        if not prepared and not errors:
+            errors.append("The spreadsheet contains no data rows.")
+        if errors:
+            for error in errors[:30]:
+                messages.error(request, error)
+            return redirect(COLLEGE_UPLOAD_PAGE[dataset])
+
+        with transaction.atomic():
+            if dataset == "student_attendance":
+                for student, row_date, row, is_present in prepared:
+                    DailyAttendance.objects.update_or_create(
+                        student=student, date=row_date, session_label=row["session_label"],
+                        defaults={"is_present": is_present},
+                    )
+            else:
+                for student, row_date, row, score, status in prepared:
+                    student.assessments.create(
+                        name=row["assessment_name"], subject=row["subject"], score=score,
+                        date=row_date, status=status,
+                    )
+        messages.success(request, f"Uploaded {len(prepared)} student {dataset.replace('_', ' ')} row(s) for {profile.college_name}.")
+    except (UnicodeDecodeError, csv.Error, ValueError, KeyError, ImportError) as error:
+        messages.error(request, str(error) or "Could not read that file. Use a valid CSV or .xlsx Excel file.")
+    return redirect(COLLEGE_UPLOAD_PAGE[dataset])
 
 
 @college_account_required
@@ -1741,19 +1696,21 @@ def college_csv_upload(request, dataset):
         response["Content-Disposition"] = f'attachment; filename="{config["filename"]}"'
         return response
     if request.method != "POST":
-        return HttpResponseForbidden("Upload a CSV file using the college page form.")
+        return HttpResponseForbidden("Upload a CSV or Excel file using the college page form.")
 
     uploaded = request.FILES.get("file")
     if not uploaded:
-        messages.error(request, "Choose a CSV file to upload.")
+        messages.error(request, "Choose a CSV or Excel file to upload.")
         return redirect(COLLEGE_UPLOAD_PAGE[dataset])
     if uploaded.size > 5 * 1024 * 1024:
-        messages.error(request, "CSV files must be 5 MB or smaller.")
+        messages.error(request, "CSV and Excel files must be 5 MB or smaller.")
         return redirect(COLLEGE_UPLOAD_PAGE[dataset])
 
+    if config.get("student_dashboard"):
+        return _import_student_dashboard_rows(request, dataset, config, uploaded)
+
     try:
-        reader = csv.DictReader(io.StringIO(uploaded.read().decode("utf-8-sig")))
-        raw_headers = reader.fieldnames or []
+        raw_headers, spreadsheet_rows = _spreadsheet_rows(uploaded)
         headers = [(header or "").strip().lower() for header in raw_headers]
         if not headers or any(not header for header in headers) or len(headers) != len(set(headers)):
             raise ValueError("CSV must have one unique, non-empty header for each column.")
@@ -1764,7 +1721,7 @@ def college_csv_upload(request, dataset):
         prepared = []
         errors = []
         seen_keys = set()
-        for row_number, raw_row in enumerate(reader, start=2):
+        for row_number, raw_row in enumerate(spreadsheet_rows, start=2):
             row = {
                 (key or "").strip().lower(): (value or "").strip()
                 for key, value in raw_row.items()
@@ -1817,8 +1774,8 @@ def college_csv_upload(request, dataset):
                     record.college = profile
                 record.save()
         messages.success(request, f"Uploaded {len(prepared)} {dataset} row(s) for {profile.college_name}.")
-    except (UnicodeDecodeError, csv.Error, ValueError) as error:
-        messages.error(request, str(error) or "Could not read that file as a valid UTF-8 CSV.")
+    except (UnicodeDecodeError, csv.Error, ValueError, KeyError, ImportError) as error:
+        messages.error(request, str(error) or "Could not read that file. Use a valid UTF-8 CSV or .xlsx Excel file.")
 
     return redirect(COLLEGE_UPLOAD_PAGE[dataset])
 
@@ -1877,6 +1834,71 @@ def _college_student_rows(profile, department_scope=""):
     return rows
 
 
+def _student_credentials_pdf(*, student, college_name, portal_url, temporary_password):
+    """Build a one-page credential handout for a newly created student account."""
+    from io import BytesIO
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    buffer = BytesIO()
+    document = SimpleDocTemplate(
+        buffer, pagesize=A4, rightMargin=22 * mm, leftMargin=22 * mm,
+        topMargin=22 * mm, bottomMargin=22 * mm,
+    )
+    styles = getSampleStyleSheet()
+    title = ParagraphStyle(
+        "CredentialTitle", parent=styles["Title"], alignment=TA_CENTER,
+        fontName="Helvetica-Bold", fontSize=20, textColor=colors.HexColor("#16324f"),
+    )
+    subtitle = ParagraphStyle(
+        "CredentialSubtitle", parent=styles["Normal"], alignment=TA_CENTER,
+        fontSize=10, textColor=colors.HexColor("#5f6b76"),
+    )
+    label = ParagraphStyle("CredentialLabel", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10)
+    value = ParagraphStyle("CredentialValue", parent=styles["Normal"], fontSize=11)
+
+    story = [
+        Paragraph("TRANSIT NEXUS", title),
+        Spacer(1, 4 * mm),
+        Paragraph("Student Portal Credentials", subtitle),
+        Spacer(1, 12 * mm),
+        Paragraph(f"Welcome, {student.get_full_name() or student.username}", styles["Heading2"]),
+        Paragraph(f"College: {college_name}", value),
+        Spacer(1, 8 * mm),
+    ]
+    details = [
+        [Paragraph("Portal", label), Paragraph(portal_url, value)],
+        [Paragraph("Student ID", label), Paragraph(student.username, value)],
+        [Paragraph("Temporary password", label), Paragraph(temporary_password, value)],
+    ]
+    table = Table(details, colWidths=[42 * mm, 116 * mm], hAlign="LEFT")
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#eaf2f8")),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#b9c9d6")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d7e1e8")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 9),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+    ]))
+    story.extend([
+        table,
+        Spacer(1, 12 * mm),
+        Paragraph("Security instruction", styles["Heading3"]),
+        Paragraph(
+            "Use these credentials for your first sign-in. Transit Nexus will require you to change the temporary password before you can access the student portal. Keep this document private and do not share your password.",
+            value,
+        ),
+    ])
+    document.build(story)
+    return buffer.getvalue()
+
+
 @college_account_required
 def college_students(request):
     profile = _college_workspace(request)
@@ -1885,10 +1907,11 @@ def college_students(request):
         account_form = CollegeStudentAccountForm(request.POST)
         if account_form.is_valid():
             data = account_form.cleaned_data
+            temporary_password = data["password"] or secrets.token_urlsafe(10)
             with transaction.atomic():
                 user = User.objects.create_user(
                     username=data["username"],
-                    password=data["password"],
+                    password=temporary_password,
                     first_name=data["first_name"],
                     last_name=data["last_name"],
                     email=data["email"],
@@ -1896,6 +1919,7 @@ def college_students(request):
                 )
                 StudentProfile.objects.create(
                     user=user, college=profile, department=data["department"], phone=data["phone"],
+                    must_change_password=True,
                 )
                 AdminStudentRecord.objects.create(
                     name=user.get_full_name() or user.username,
@@ -1903,8 +1927,40 @@ def college_students(request):
                     department=data["department"],
                     status="Active",
                 )
-            messages.success(request, f"Student account '{user.username}' was created for {profile.college_name}.")
-            return redirect("college_students")
+            portal_url = request.build_absolute_uri(reverse("login"))
+            email_sent = False
+            try:
+                send_mail(
+                    subject="Your Transit Nexus student portal access",
+                    message=(
+                        f"Hello {user.get_full_name() or user.username},\n\n"
+                        f"Your Transit Nexus portal account has been created for {profile.college_name}.\n\n"
+                        f"Portal: {portal_url}\n"
+                        f"Student ID: {user.username}\n"
+                        f"Temporary password: {temporary_password}\n\n"
+                        "Sign in with these details. You will be asked to change the temporary password before accessing the portal."
+                    ),
+                    from_email=None,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+                email_sent = True
+            except Exception:
+                # Account creation must remain successful if SMTP is not configured.
+                pass
+            if email_sent:
+                messages.success(request, f"Student account '{user.username}' was created. The portal ID and temporary password were emailed to {user.email}.")
+            else:
+                messages.success(request, f"Student account '{user.username}' was created. Email delivery is unavailable. Share ID '{user.username}' and temporary password '{temporary_password}' securely with the student.")
+            pdf = _student_credentials_pdf(
+                student=user,
+                college_name=profile.college_name,
+                portal_url=portal_url,
+                temporary_password=temporary_password,
+            )
+            response = HttpResponse(pdf, content_type="application/pdf")
+            response["Content-Disposition"] = f'attachment; filename="transit-nexus-{user.username}-credentials.pdf"'
+            return response
     students = _college_student_rows(profile, _college_department_scope(request))
     raw_department_options = {_canonical_department_name(student["department"]) for student in students if student["department"] != "—" and student["department"]}
     department_options = sorted(raw_department_options, key=_department_sort_key)
@@ -1973,122 +2029,42 @@ def college_assessments(request):
     ctx = _page_ctx(profile, COLLEGE_NAV, "Assessments", "Assessments",
                     f"{assessments.count()} assessments", "College Admin", assessments=assessments,
                     linked_tests=linked_tests, external_form=external_form,
-                    csv_dataset="assessments", **management)
+                    csv_dataset="student_results", **management)
     return render(request, "portal/college_assessments.html", ctx)
-
-
-@college_account_required
-def college_results(request):
-    profile = _college_workspace(request)
-    records = profile.results.select_related("student__user").all()
-    documents = profile.result_documents.all()
-    document_form = DepartmentResultDocumentForm()
-    if request.method == "POST" and request.POST.get("action") == "upload_document":
-        document_form = DepartmentResultDocumentForm(request.POST, request.FILES)
-        if document_form.is_valid():
-            document = document_form.save(commit=False)
-            document.college = profile
-            document.save()
-            messages.success(request, "Department results PDF uploaded for your college.")
-            return redirect("college_results")
-    elif request.method == "POST" and request.POST.get("action") == "delete_document":
-        document = documents.filter(pk=request.POST.get("document_id", "")).first()
-        if document:
-            document.delete()
-            messages.success(request, "Results PDF removed.")
-        else:
-            messages.error(request, "That PDF was not found for your college.")
-        return redirect("college_results")
-    record_id = request.POST.get("record_id", "").strip() if request.method == "POST" else request.GET.get("edit", "")
-    instance = records.filter(pk=record_id).first() if record_id.isdecimal() else None
-
-    if request.method == "POST" and request.POST.get("action") == "delete":
-        if instance:
-            instance.delete()
-            messages.success(request, "Result deleted.")
-        else:
-            messages.error(request, "That result was not found for your college.")
-        return redirect("college_results")
-
-    form = CollegeResultForm(request.POST or None, instance=instance, college=profile)
-    if request.method == "POST" and form.is_valid():
-        result = form.save(commit=False)
-        result.college = profile
-        result.save()
-        messages.success(request, "Result updated and published to the student." if instance else "Result published to the student.")
-        return redirect("college_results")
-
-    ctx = _page_ctx(profile, COLLEGE_NAV, "Results", "Results",
-                    f"{records.count()} published results", _college_role_label(request),
-                    results=records, record_form=form, edit_record=instance,
-                    documents=documents, document_form=document_form)
-    return render(request, "portal/college_results.html", ctx)
-
-
-@login_required
-def download_result_document(request, document_id):
-    document = get_object_or_404(DepartmentResultDocument.objects.select_related("college"), pk=document_id)
-    is_college_account = hasattr(request.user, "college_profile") and _college_workspace(request).pk == document.college_id
-    is_student_account = hasattr(request.user, "profile") and request.user.profile.college_id == document.college_id
-    if not (is_college_account or is_student_account):
-        return HttpResponseForbidden("You cannot access this results PDF.")
-    return FileResponse(document.pdf.open("rb"), as_attachment=False, filename=document.pdf.name.rsplit("/", 1)[-1], content_type="application/pdf")
 
 
 @college_account_required
 def college_attendance(request):
     profile = _college_workspace(request)
-    selected_date_value = request.POST.get("attendance_date") or request.GET.get("date", "")
-    try:
-        selected_date = date.fromisoformat(selected_date_value) if selected_date_value else timezone.localdate()
-    except ValueError:
-        selected_date = timezone.localdate()
-    selected_session = (request.POST.get("session_name") or request.GET.get("session", "")).strip() or "General Session"
+    today = timezone.localdate()
     department_scope = _college_department_scope(request)
-    all_departments = _department_summary_rows(profile)
-    department_names = sorted(
-        {_canonical_department_name(department.name) for department in all_departments if department.name},
-        key=_department_sort_key,
-    )
-    department_names.extend(sorted(
-        {
-            _canonical_department_name(student.department)
-            for student in profile.student_accounts.all()
-            if student.department and _canonical_department_name(student.department) not in department_names
-        },
-        key=_department_sort_key,
-    ))
-    download_all_college = (
-        request.method == "GET"
-        and request.GET.get("download") == "attendance_pdf"
-        and request.GET.get("department") == "all"
-        and not department_scope
-    )
-    selected_department = department_scope or request.GET.get("department", "").strip()
-    selected_department = _canonical_department_name(selected_department) if selected_department else ""
-    if not download_all_college and not selected_department and department_names:
-        selected_department = department_names[0]
-    if not download_all_college and selected_department not in department_names and selected_department != department_scope:
-        selected_department = department_scope or (department_names[0] if department_names else "")
+    available_departments = sorted({
+        _canonical_department_name(student.department)
+        for student in _college_student_accounts(profile, department_scope)
+        if student.department
+    }, key=_department_sort_key)
 
-    students = _college_student_accounts(profile, "" if download_all_college else selected_department)
-
-    if request.method == "GET" and request.GET.get("download") == "attendance_pdf":
-        attendance_by_student = {
-            record.student_id: record
-            for record in DailyAttendance.objects.filter(
-                student__in=students, date=selected_date, session_name=selected_session,
-            )
-        }
-        return _attendance_pdf_response(
-            profile, students, attendance_by_student, selected_date, selected_session,
-        )
+    requested_date = request.POST.get("attendance_date", "") if request.method == "POST" else request.GET.get("date", "")
+    try:
+        selected_date = date.fromisoformat(requested_date) if requested_date else today
+    except ValueError:
+        selected_date = today
+    session_label = (request.POST.get("session_label", "") if request.method == "POST" else request.GET.get("session", "")).strip()[:120]
+    session_label = session_label or "Regular Session"
+    selected_department = _canonical_department_name(
+        request.POST.get("department", "") if request.method == "POST" else request.GET.get("department", "")
+    )
+    if department_scope:
+        selected_department = department_scope
+    elif selected_department and selected_department not in available_departments:
+        selected_department = ""
+    students = _college_student_accounts(profile, selected_department)
 
     if request.method == "GET" and request.GET.get("download") == "attendance":
         attendance_by_student = {
             record.student_id: record
             for record in DailyAttendance.objects.filter(
-                student__in=students, date=selected_date, session_name=selected_session,
+                student__in=students, date=selected_date, session_label=session_label,
             )
         }
         output = io.StringIO(newline="")
@@ -2097,7 +2073,7 @@ def college_attendance(request):
         for student in students:
             record = attendance_by_student.get(student.pk)
             writer.writerow([
-                selected_date.isoformat(), selected_session,
+                selected_date.isoformat(), session_label,
                 _canonical_department_name(student.department),
                 student.user.get_full_name() or student.user.username,
                 student.user.username,
@@ -2108,59 +2084,58 @@ def college_attendance(request):
         response["Content-Disposition"] = f'attachment; filename="attendance-{selected_date.isoformat()}.csv"'
         return response
 
-    if request.method == "POST" and request.POST.get("action") in {"mark_department_attendance", "save_department_attendance"}:
-        action = request.POST.get("action")
-        uniform_status = request.POST.get("attendance_status") == "present"
-        with transaction.atomic():
-            student_ids = [student.pk for student in students]
-            existing_records = list(DailyAttendance.objects.filter(
-                student_id__in=student_ids, date=selected_date, session_name=selected_session,
-            ))
-            for record in existing_records:
-                record.is_present = (
-                    request.POST.get(f"attendance_{record.student_id}") == "present"
-                    if action == "save_department_attendance" else uniform_status
-                )
-            if existing_records:
-                DailyAttendance.objects.bulk_update(existing_records, ["is_present"])
-            existing_student_ids = {record.student_id for record in existing_records}
-            missing_records = [
-                DailyAttendance(
-                    student_id=student_id, date=selected_date,
-                    session_name=selected_session,
-                    is_present=(
-                        request.POST.get(f"attendance_{student_id}") == "present"
-                        if action == "save_department_attendance" else uniform_status
-                    ),
-                )
-                for student_id in student_ids if student_id not in existing_student_ids
-            ]
-            if missing_records:
-                DailyAttendance.objects.bulk_create(missing_records)
-        messages.success(
-            request,
-            f"Saved attendance for {len(students)} student(s) in {selected_department} "
-            f"for {selected_session}.",
-        )
+    if request.method == "POST" and request.POST.get("action") == "mark_department_attendance":
+        if not selected_department:
+            messages.error(request, "Choose a department before updating attendance.")
+        else:
+            is_present = request.POST.get("attendance_status") == "present"
+            with transaction.atomic():
+                for student in students:
+                    DailyAttendance.objects.update_or_create(
+                        student=student, date=selected_date, session_label=session_label,
+                        defaults={"is_present": is_present},
+                    )
+            messages.success(
+                request,
+                f"Updated {len(students)} student(s) in {selected_department} as "
+                f"{'present' if is_present else 'absent'} for {session_label}.",
+            )
         return redirect(
-            f"{reverse('college_attendance')}?department={selected_department}"
-            f"&date={selected_date:%Y-%m-%d}&session={selected_session}"
+            f"{reverse('college_attendance')}?date={selected_date.isoformat()}"
+            f"&session={quote(session_label)}&department={quote(selected_department)}"
+        )
+
+    if request.method == "POST" and request.POST.get("action") == "toggle_student_attendance":
+        student_id = request.POST.get("student_id", "")
+        student = profile.student_accounts.filter(pk=student_id).first() if student_id.isdecimal() else None
+        if student:
+            record, created = DailyAttendance.objects.get_or_create(
+                student=student, date=selected_date, session_label=session_label,
+            )
+            if not created:
+                record.is_present = not record.is_present
+                record.save(update_fields=["is_present"])
+            messages.success(
+                request,
+                f"{student.user.get_full_name() or student.user.username} marked "
+                f"{'present' if record.is_present else 'absent'} for today.",
+            )
+        else:
+            messages.error(request, "That student is not registered with this college.")
+        return redirect(
+            f"{reverse('college_attendance')}?date={selected_date.isoformat()}"
+            f"&session={quote(session_label)}&department={quote(selected_department)}"
         )
 
     today_attendance = {
         record.student_id: record
-        for record in DailyAttendance.objects.filter(student__in=students, date=selected_date, session_name=selected_session)
+        for record in DailyAttendance.objects.filter(
+            student__in=students, date=selected_date, session_label=session_label,
+        )
     }
     for student in students:
         student.today_attendance = today_attendance.get(student.pk)
-    all_students_present = bool(students) and all(
-        student.today_attendance and student.today_attendance.is_present
-        for student in students
-    )
-    departments = [
-        department for department in all_departments
-        if not selected_department or _canonical_department_name(department.name) == selected_department
-    ]
+    departments = _department_summary_rows(profile)
     management = _college_record_context(request, profile, Department, DepartmentAttendanceForm, "college_attendance")
     if not isinstance(management, dict):
         return management
@@ -2169,13 +2144,13 @@ def college_attendance(request):
     trend = profile.trend_points.all()
     trend_json = json.dumps({"labels": [t.month_label for t in trend], "values": [float(t.avg_percentage) for t in trend]})
     ctx = _page_ctx(profile, COLLEGE_NAV, "Attendance", "Attendance",
-                    f"{selected_department or 'Department'} attendance", _college_role_label(request),
+                    f"{avg_attendance}% average attendance", "College Admin",
                     departments=departments, students=students, today=selected_date,
-                    selected_date=selected_date, selected_session=selected_session,
-                    department_options=department_names, selected_department=selected_department,
-                    all_students_present=all_students_present,
+                    selected_date=selected_date, session_label=session_label,
+                    selected_department=selected_department,
+                    available_departments=available_departments,
                     avg_attendance=avg_attendance, trend_json=trend_json,
-                    csv_dataset="attendance", **management)
+                    csv_dataset="student_attendance", **management)
     return render(request, "portal/college_attendance.html", ctx)
 
 
@@ -2348,7 +2323,7 @@ def college_settings(request):
 # TRAINER — sub-pages
 # =========================================================
 
-@trainer_account_required
+@login_required
 def trainer_batches(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     batches = profile.batches.all()
@@ -2357,7 +2332,7 @@ def trainer_batches(request):
     return render(request, "portal/trainer_batches.html", ctx)
 
 
-@trainer_account_required
+@login_required
 def trainer_attendance(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     batches = profile.batches.all()
@@ -2372,7 +2347,7 @@ def trainer_assessments(request):
     profile = request.user.trainer_profile
     assessments = profile.assessments.all()
     tests = profile.online_tests.all()
-    colleges = CollegeProfile.objects.filter(user__admin_profile__isnull=True, user__is_staff=False, workspace__isnull=True)
+    colleges = CollegeProfile.objects.filter(user__admin_profile__isnull=True, user__is_staff=False)
     schedule_form = OnlineTestForm()
     schedule_form.fields["college"].queryset = colleges
     errors = []
@@ -2501,7 +2476,7 @@ def trainer_review_test_answer(request, test_id, answer_id):
     return HttpResponseForbidden("Submit a score to review this written response.")
 
 
-@trainer_account_required
+@login_required
 def trainer_assignments(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     assignments = profile.assignments.all()
@@ -2510,7 +2485,7 @@ def trainer_assignments(request):
     return render(request, "portal/trainer_assignments.html", ctx)
 
 
-@trainer_account_required
+@login_required
 def trainer_students(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     if profile.college_id is None:
@@ -2525,7 +2500,7 @@ def trainer_students(request):
     return render(request, "portal/trainer_students.html", ctx)
 
 
-@trainer_account_required
+@login_required
 def trainer_question_bank(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     items = profile.question_bank.all()
@@ -2534,7 +2509,7 @@ def trainer_question_bank(request):
     return render(request, "portal/trainer_question_bank.html", ctx)
 
 
-@trainer_account_required
+@login_required
 def trainer_reports(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     trend = profile.trend_points.all()
@@ -2544,7 +2519,7 @@ def trainer_reports(request):
     return render(request, "portal/trainer_reports.html", ctx)
 
 
-@trainer_account_required
+@login_required
 def trainer_calendar(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     events = profile.calendar_events.all()
@@ -2553,7 +2528,7 @@ def trainer_calendar(request):
     return render(request, "portal/trainer_calendar.html", ctx)
 
 
-@trainer_account_required
+@login_required
 def trainer_settings(request):
     profile, _ = TrainerProfile.objects.get_or_create(user=request.user)
     user = profile.user

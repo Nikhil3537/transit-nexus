@@ -3,37 +3,17 @@
 {% block content %}
 {% include "portal/_college_csv_upload.html" %}
 <section class="panel">
-  <div class="panel-head"><h3>Choose Department</h3></div>
-  <form method="get" class="form-grid attendance-department-filter">
-    <label>Department
-      <select name="department" {% if request.user.college_profile.account_role == "hod" %}disabled{% endif %}>
-        {% for department in department_options %}
-          <option value="{{ department }}" {% if department == selected_department %}selected{% endif %}>{{ department }}</option>
-        {% empty %}
-          <option>No departments available</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>Session date
-      <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
-    </label>
-    <label>Session name
-      <input type="text" name="session" value="{{ selected_session }}" placeholder="e.g. Python Basics">
-    </label>
-    {% if request.user.college_profile.account_role != "hod" %}<button class="btn btn-primary" type="submit">View Department</button>{% endif %}
+  <div class="panel-head"><h3>Department Session Attendance</h3><span class="muted">Update every student in a department once.</span></div>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="mark_department_attendance">
+    <label>Date<input type="date" name="attendance_date" value="{{ selected_date|date:'Y-m-d' }}" required></label>
+    <label>Session<input type="text" name="session_label" value="{{ session_label }}" maxlength="120" required></label>
+    <label>Department<select name="department" required><option value="">Choose department</option>{% for department in available_departments %}<option value="{{ department }}" {% if selected_department == department %}selected{% endif %}>{{ department }}</option>{% endfor %}</select></label>
+    <label>Status<select name="attendance_status"><option value="present">Present</option><option value="absent">Absent</option></select></label>
+    <div><button class="btn btn-primary" type="submit">Update Department Attendance</button></div>
   </form>
-</section>
-<section class="panel">
-  <div class="panel-head"><h3>Update Department Attendance</h3><span class="muted">Mark every student in this department once for the selected session.</span></div>
-  <div>
-    <button class="attendance-toggle is-on" type="button" id="markAllPresent" aria-label="Set all students present">
-      <span class="attendance-toggle-track" aria-hidden="true"><span class="attendance-toggle-knob"></span></span>
-      <span>Set all students present</span>
-    </button>
-  </div>
-  <p class="muted">Start with everyone present, switch off only absent students, then save once.</p>
-  <p class="muted"><a href="?download=attendance&amp;department={{ selected_department|urlencode }}&amp;date={{ selected_date|date:'Y-m-d' }}&amp;session={{ selected_session|urlencode }}">Download complete attendance CSV</a> for this department, date, and session.</p>
-  <p class="muted"><a class="btn btn-secondary" href="?download=attendance_pdf&amp;department=all&amp;date={{ selected_date|date:'Y-m-d' }}&amp;session={{ selected_session|urlencode }}">Download complete college attendance PDF</a></p>
+  <p class="muted">Student attendance uploads must include student ID, department, semester, date, session label, and Present/Absent status. The uploaded rows appear on each matching student's dashboard.</p>
 </section>
 <section class="panel">
   <div class="panel-head"><h3>{% if edit_record %}Update Department Attendance{% else %}Add Department Attendance{% endif %}</h3></div>
@@ -46,15 +26,9 @@
 </section>
 <section class="panel">
   <div class="panel-head">
-    <h3>{{ selected_department|default:"Department" }} Attendance · {{ selected_date|date:"M j, Y" }}</h3>
-    <span class="muted">Session: {{ selected_session }} · Only this department is shown.</span>
+    <h3>Registered Student Attendance · {{ today|date:"M j, Y" }}</h3>
+    <span class="muted">{{ session_label }}{% if selected_department %} · {{ selected_department }}{% endif %}</span>
   </div>
-  <form method="post" id="departmentAttendanceForm">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="save_department_attendance">
-    <input type="hidden" name="department" value="{{ selected_department }}">
-    <input type="hidden" name="attendance_date" value="{{ selected_date|date:'Y-m-d' }}">
-    <input type="hidden" name="session_name" value="{{ selected_session }}">
   <table class="data-table">
     <thead><tr><th>Student</th><th>Department</th><th>Attendance</th></tr></thead>
     <tbody>
@@ -64,11 +38,15 @@
         <td>{{ student.user.get_full_name|default:student.user.username }}</td>
         <td>{{ student.department|default:"—" }}</td>
         <td>
-          <input type="hidden" name="attendance_{{ student.pk }}" value="{% if not attendance or attendance.is_present %}present{% else %}absent{% endif %}">
-          <button class="attendance-toggle {% if not attendance or attendance.is_present %}is-on{% else %}is-off{% endif %}" type="button" data-attendance-toggle role="switch" aria-checked="{% if not attendance or attendance.is_present %}true{% else %}false{% endif %}" aria-label="Toggle attendance for {{ student.user.get_full_name|default:student.user.username }}">
-            <span class="attendance-toggle-track" aria-hidden="true"><span class="attendance-toggle-knob"></span></span>
-            <span class="attendance-toggle-label">{% if not attendance or attendance.is_present %}Present{% else %}Absent{% endif %}</span>
-          </button>
+          <form method="post" class="attendance-toggle-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="toggle_student_attendance">
+            <input type="hidden" name="student_id" value="{{ student.pk }}">
+            <button class="attendance-toggle {% if attendance and attendance.is_present %}is-on{% else %}is-off{% endif %}" type="submit" role="switch" aria-checked="{% if attendance and attendance.is_present %}true{% else %}false{% endif %}" aria-label="Toggle attendance for {{ student.user.get_full_name|default:student.user.username }}">
+              <span class="attendance-toggle-track" aria-hidden="true"><span class="attendance-toggle-knob"></span></span>
+              <span>{% if attendance and attendance.is_present %}Present{% else %}Absent{% endif %}</span>
+            </button>
+          </form>
         </td>
       </tr>
       {% endwith %}
@@ -77,8 +55,6 @@
     {% endfor %}
     </tbody>
   </table>
-    <button class="btn btn-primary" type="submit">Save All Student Attendance</button>
-  </form>
 </section>
 <section class="grid-2">
   <div class="panel">
@@ -101,34 +77,11 @@
 {% block page_scripts %}
 <script>
   const trend = {{ trend_json|safe }};
-  if (typeof Chart !== 'undefined') {
-    new Chart(document.getElementById('attTrend'), {
-      type: 'line',
-      data: { labels: trend.labels, datasets: [{ label: 'Avg %', data: trend.values,
-        borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#22c55e' }] },
-      options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
-    });
-  }
-  document.querySelectorAll('[data-attendance-toggle]').forEach((toggle) => {
-    toggle.addEventListener('click', () => {
-      const hidden = toggle.parentElement.querySelector('input[type="hidden"]');
-      const isPresent = hidden.value !== 'present';
-      hidden.value = isPresent ? 'present' : 'absent';
-      toggle.classList.toggle('is-on', isPresent);
-      toggle.classList.toggle('is-off', !isPresent);
-      toggle.setAttribute('aria-checked', String(isPresent));
-      toggle.querySelector('.attendance-toggle-label').textContent = isPresent ? 'Present' : 'Absent';
-    });
-  });
-  document.getElementById('markAllPresent')?.addEventListener('click', () => {
-    document.querySelectorAll('[data-attendance-toggle]').forEach((toggle) => {
-      const hidden = toggle.parentElement.querySelector('input[type="hidden"]');
-      hidden.value = 'present';
-      toggle.classList.add('is-on');
-      toggle.classList.remove('is-off');
-      toggle.setAttribute('aria-checked', 'true');
-      toggle.querySelector('.attendance-toggle-label').textContent = 'Present';
-    });
+  new Chart(document.getElementById('attTrend'), {
+    type: 'line',
+    data: { labels: trend.labels, datasets: [{ label: 'Avg %', data: trend.values,
+      borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#22c55e' }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
   });
 </script>
 {% endblock %}

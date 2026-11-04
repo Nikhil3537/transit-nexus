@@ -102,17 +102,6 @@
             {% endfor %}
           </ul>
         </div>
-        {% if college_external_tests %}
-        <div class="list-block" style="margin-top:1rem;">
-          <p class="score-dist-title">College Testmoz Assessments</p>
-          {% for test in college_external_tests %}
-          <div class="sw-item" style="display:flex;justify-content:space-between;gap:.75rem;align-items:center;">
-            <span><i class="fa-solid fa-link"></i> {{ test.title }}</span>
-            {% if now >= test.opens_at and now < test.closes_at %}<a class="btn btn-primary" href="{{ test.external_url }}" target="_blank" rel="noopener">Open</a>{% elif now < test.opens_at %}<span class="muted">Scheduled</span>{% else %}<span class="muted">Closed</span>{% endif %}
-          </div>
-          {% endfor %}
-        </div>
-        {% endif %}
         <canvas id="scoreTrend" height="110"></canvas>
       </div>
 
@@ -148,11 +137,11 @@
     <section class="panel">
       <div class="panel-head"><h3>Recent Session Attendance</h3><a href="{% url 'attendance' %}">View All</a></div>
       <table class="data-table">
-        <thead><tr><th>Date</th><th>Session</th><th>Status</th></tr></thead>
+        <thead><tr><th>Date</th><th>Session</th><th>Department</th><th>Status</th></tr></thead>
         <tbody>
-        {% for session in session_attendance|slice:":12" %}
-          <tr><td>{{ session.date|date:"d M Y" }}</td><td>{{ session.session_name }}</td><td><span class="tag {% if session.is_present %}tag-good{% else %}tag-bad{% endif %}">{% if session.is_present %}Present{% else %}Absent{% endif %}</span></td></tr>
-        {% empty %}<tr><td colspan="3">No session attendance has been recorded yet.</td></tr>{% endfor %}
+        {% for record in daily_attendance %}
+          <tr><td>{{ record.date|date:"M j, Y" }}</td><td>{{ record.session_label }}</td><td>{{ profile.department|default:"—" }}</td><td><span class="tag {% if record.is_present %}tag-good{% else %}tag-needs-improvement{% endif %}">{% if record.is_present %}Present{% else %}Absent{% endif %}</span></td></tr>
+        {% empty %}<tr><td colspan="4">No session attendance has been recorded yet.</td></tr>{% endfor %}
         </tbody>
       </table>
     </section>

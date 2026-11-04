@@ -1,3 +1,0 @@
-{% extends "portal/_page_base.html" %}
-{% block title %}Memberships · Transit Nexus{% endblock %}
-{% block content %}<section class="panel"><div class="panel-head"><h3>Memberships</h3></div><table class="data-table"><thead><tr><th>Plan</th><th>Starts</th><th>Expires</th><th>Status</th></tr></thead><tbody>{% for membership in memberships %}<tr><td>{{ membership.plan_name }}</td><td>{{ membership.starts_on|date:"d M Y" }}</td><td>{{ membership.expires_on|date:"d M Y" }}</td><td>{{ membership.get_status_display }}</td></tr>{% empty %}<tr><td colspan="4">No membership records yet.</td></tr>{% endfor %}</tbody></table></section>{% endblock %}

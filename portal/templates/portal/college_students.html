@@ -15,12 +15,12 @@
 </section>
 {% include "portal/_college_csv_upload.html" %}
 <section class="panel">
-  <div class="panel-head"><h3>Create Student Account</h3><span class="muted">The student can use these credentials to sign in.</span></div>
+  <div class="panel-head"><h3>Create Student Account</h3><span class="muted">A PDF credential card downloads automatically after creation.</span></div>
   <form method="post" class="form-grid">
     {% csrf_token %}
     <input type="hidden" name="action" value="create_account">
     {% for field in account_form %}<label>{{ field.label }}{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>{% endfor %}
-    <div><button class="btn btn-primary" type="submit">Create Student Account</button></div>
+    <div><button class="btn btn-primary" type="submit">Create Account &amp; Download PDF</button></div>
   </form>
 </section>
 <section class="panel">

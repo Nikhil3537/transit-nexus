@@ -110,7 +110,10 @@ class CollegeProfile(models.Model):
         ("hod", "Head of Department"),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="college_profile")
-    workspace = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="role_accounts", help_text="The shared college workspace for this account.")
+    workspace = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="role_accounts", help_text="The shared college workspace for this account.",
+    )
     account_role = models.CharField(max_length=20, choices=ACCOUNT_ROLE_CHOICES, default="college_admin")
     department_scope = models.CharField(max_length=150, blank=True)
     college_name = models.CharField(max_length=150, default="ABC Engineering College")
@@ -438,46 +441,6 @@ class CollegeAssessment(models.Model):
         ordering = ["-date"]
 
 
-class CollegeResult(models.Model):
-    college = models.ForeignKey(CollegeProfile, on_delete=models.CASCADE, related_name="results")
-    student = models.ForeignKey(
-        StudentProfile, on_delete=models.CASCADE, related_name="college_results",
-    )
-    semester = models.CharField(max_length=100, default="", blank=True)
-    exam_name = models.CharField(max_length=150)
-    subject = models.CharField(max_length=120)
-    score = models.DecimalField(max_digits=6, decimal_places=2)
-    max_score = models.DecimalField(max_digits=6, decimal_places=2, default=100)
-    published_at = models.DateField(default=None, null=True, blank=True)
-    remarks = models.CharField(max_length=250, blank=True)
-
-    class Meta:
-        ordering = ["-published_at", "-id"]
-
-    @property
-    def percentage(self):
-        if not self.max_score:
-            return 0
-        return round((self.score / self.max_score) * 100, 1)
-
-    def __str__(self):
-        return f"{self.student} — {self.exam_name} — {self.subject}"
-
-
-class DepartmentResultDocument(models.Model):
-    college = models.ForeignKey(CollegeProfile, on_delete=models.CASCADE, related_name="result_documents")
-    semester = models.CharField(max_length=100, default="", blank=True)
-    title = models.CharField(max_length=150)
-    pdf = models.FileField(upload_to="college-results/%Y/%m/")
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-uploaded_at"]
-
-    def __str__(self):
-        return f"{self.college} — {self.department} — {self.title}"
-
-
 class CollegeProgram(models.Model):
     STATUS_CHOICES = [("active", "Active"), ("completed", "Completed")]
 
@@ -583,41 +546,6 @@ class TrainerCalendarEvent(models.Model):
 
     class Meta:
         ordering = ["date"]
-
-
-class TrainerPayment(models.Model):
-    STATUS_CHOICES = [("paid", "Paid"), ("pending", "Pending")]
-    trainer = models.ForeignKey(TrainerProfile, on_delete=models.CASCADE, related_name="payments")
-    description = models.CharField(max_length=150)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_date = models.DateField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
-
-    class Meta:
-        ordering = ["-payment_date", "-id"]
-
-
-class TrainerMembership(models.Model):
-    STATUS_CHOICES = [("active", "Active"), ("expired", "Expired"), ("pending", "Pending")]
-    trainer = models.ForeignKey(TrainerProfile, on_delete=models.CASCADE, related_name="memberships")
-    plan_name = models.CharField(max_length=120)
-    starts_on = models.DateField()
-    expires_on = models.DateField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
-
-    class Meta:
-        ordering = ["-starts_on"]
-
-
-class TrainerFeedback(models.Model):
-    trainer = models.ForeignKey(TrainerProfile, on_delete=models.CASCADE, related_name="feedback_entries")
-    college = models.ForeignKey(CollegeProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name="trainer_feedback")
-    rating = models.PositiveIntegerField(default=5)
-    comments = models.TextField()
-    submitted_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-submitted_at"]
 
 
 # =========================================================

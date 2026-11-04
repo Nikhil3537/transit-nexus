@@ -30,8 +30,6 @@ urlpatterns = [
     path("college/departments/", views.college_departments, name="college_departments"),
     path("college/students/", views.college_students, name="college_students"),
     path("college/assessments/", views.college_assessments, name="college_assessments"),
-    path("college/results/", views.college_results, name="college_results"),
-    path("results-pdf/<int:document_id>/", views.download_result_document, name="download_result_document"),
     path("college/attendance/", views.college_attendance, name="college_attendance"),
     path("college/programs/", views.college_programs, name="college_programs"),
     path("college/payments/", views.college_payments, name="college_payments"),
@@ -45,11 +43,6 @@ urlpatterns = [
 
     # Trainer
     path("trainer-dashboard/", views.trainer_dashboard, name="trainer_dashboard"),
-    path("trainer/colleges/", views.trainer_colleges, name="trainer_colleges"),
-    path("trainer/schedule/", views.trainer_schedule, name="trainer_schedule"),
-    path("trainer/feedback/", views.trainer_feedback, name="trainer_feedback"),
-    path("trainer/payments/", views.trainer_payments, name="trainer_payments"),
-    path("trainer/memberships/", views.trainer_memberships, name="trainer_memberships"),
     path("trainer/batches/", views.trainer_batches, name="trainer_batches"),
     path("trainer/attendance/", views.trainer_attendance, name="trainer_attendance"),
     path("trainer/assessments/", views.trainer_assessments, name="trainer_assessments"),

@@ -3,6 +3,8 @@ from decimal import Decimal, InvalidOperation
 from datetime import date, timedelta
 
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.views import PasswordChangeView
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.models import User
@@ -22,7 +24,7 @@ from .models import (
     Skill,
     DailyAttendance,
 )
-from portal.models import AdminStudentRecord, CollegeProfile, CollegeResult, DepartmentResultDocument, OnlineTest, OnlineTestAnswer, OnlineTestAttempt, TrainerProfile
+from portal.models import AdminStudentRecord, CollegeProfile, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
 from portal.forms import ACADEMIC_PROGRAMME_CHOICES
 
 
@@ -32,21 +34,6 @@ DEFAULT_DEPARTMENT_NAMES = [
     for value, _display_name in group_choices
     if value != "__custom__"
 ]
-
-REGISTRATION_DEPARTMENT_ALIASES = {
-    "Arts and Commerce": "Arts & Commerce",
-    "Architecture and Design": "Architecture & Design",
-    "Allied Health Sciences": "Allied Health Science",
-}
-REGISTRATION_CATEGORY_NAMES = {
-    "Engineering",
-    "Arts & Commerce",
-    "Pharmacy",
-    "Allied Health Science",
-    "Architecture & Design",
-    "Nursing",
-    "Management",
-}
 
 
 def _redirect_for_role(user):
@@ -70,7 +57,7 @@ def _redirect_for_role(user):
 
     # STUDENT
     if hasattr(user, "profile"):
-        return redirect("student_colleges")
+        return redirect("dashboard")
 
     # UNKNOWN ROLE
     return redirect("login")
@@ -86,6 +73,8 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
+            if hasattr(user, "profile") and user.profile.must_change_password:
+                return redirect("password_change")
             return _redirect_for_role(user)
         if User.objects.filter(username=username, is_active=False).exists():
             messages.error(request, "This account is waiting for administrator approval.")
@@ -96,130 +85,30 @@ def login_view(request):
 
 
 def student_register_view(request):
-    if request.user.is_authenticated:
-        return _redirect_for_role(request.user)
+    messages.info(request, "Student accounts are created by your college. Please contact your college administrator for your portal ID and temporary password.")
+    return redirect("login")
 
-    colleges = list(
-        CollegeProfile.objects.select_related("user").prefetch_related("departments").filter(
-            user__admin_profile__isnull=True,
-            user__is_staff=False,
-            workspace__isnull=True,
-            user__is_active=True,
-        ).order_by("college_name", "pk")
-    )
-    departments_by_college = {}
-    for college in colleges:
-        department_names = {
-            department.name.strip()
-            for department in college.departments.all()
-            if department.name and department.name.strip()
-        }
-        department_names.update(
-            name.strip()
-            for name in AdminStudentRecord.objects.filter(
-                college_name__iexact=college.college_name,
-            ).values_list("department", flat=True)
-            if name and name.strip()
-        )
-        department_names.update(
-            name.strip()
-            for name in college.students.values_list("department", flat=True)
-            if name and name.strip()
-        )
-        # Always include the shared programme catalogue, even when a college has
-        # one or more department records already configured. Otherwise a college
-        # with just (for example) Architecture saved only exposes that single
-        # department on the public registration form.
-        department_names.update(DEFAULT_DEPARTMENT_NAMES)
-        department_names.update(REGISTRATION_CATEGORY_NAMES)
-        departments_by_college[str(college.pk)] = sorted(department_names, key=str.casefold)
-    if request.method == "POST":
-        username = request.POST.get("username", "").strip()
-        password = request.POST.get("password", "")
-        first_name = request.POST.get("first_name", "").strip()
-        last_name = request.POST.get("last_name", "").strip()
-        email = request.POST.get("email", "").strip()
-        phone = request.POST.get("phone", "").strip()
-        college_id = request.POST.get("college_id", "").strip()
-        college_name = request.POST.get("college_name", "").strip()
-        department_name = request.POST.get("department_name", request.POST.get("department", "")).strip()
-        department_name = REGISTRATION_DEPARTMENT_ALIASES.get(department_name, department_name)
-        college = next((item for item in colleges if str(item.pk) == college_id), None)
-        if college is None and college_name:
-            college = next((item for item in colleges if item.college_name.casefold() == college_name.casefold()), None)
-        valid_department_names = departments_by_college.get(str(college.pk), []) if college else []
 
-        if not username or not password:
-            messages.error(request, "Username and password are required.")
-        elif college is None:
-            messages.error(request, "Choose a college from the list.")
-        elif department_name not in valid_department_names:
-            messages.error(request, "Choose a department that belongs to the selected college.")
-        elif User.objects.filter(username=username).exists():
-            messages.error(request, f"Username '{username}' is already taken.")
-        else:
-            user = User.objects.create_user(
-                username=username,
-                password=password,
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                is_active=False,
-            )
-            StudentProfile.objects.create(
-                user=user, college=college, department=department_name, phone=phone,
-            )
-            AdminStudentRecord.objects.create(
-                name=user.get_full_name() or user.username,
-                college_name=college.college_name,
-                department=department_name,
-                status="Pending",
-            )
-            messages.success(request, "Your student account has been created successfully. Please wait for administrator approval.")
+class StudentPasswordChangeView(PasswordChangeView):
+    template_name = "dashboard/password_change.html"
+    form_class = PasswordChangeForm
+    success_url = "/"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
             return redirect("login")
+        if not hasattr(request.user, "profile"):
+            return _redirect_for_role(request.user)
+        return super().dispatch(request, *args, **kwargs)
 
-    return render(request, "dashboard/student_register.html", {
-        "form_values": {
-            "college_id": request.POST.get("college_id", "").strip(),
-            "department_name": request.POST.get("department_name", "").strip(),
-        } if request.method == "POST" else {},
-        "colleges": colleges,
-        "departments_by_college": departments_by_college,
-    })
-
-
-def trainer_register_view(request):
-    if request.user.is_authenticated:
-        return _redirect_for_role(request.user)
-
-    if request.method == "POST":
-        username = request.POST.get("username", "").strip()
-        password = request.POST.get("password", "")
-
-        if not username or not password:
-            messages.error(request, "Username and password are required.")
-        elif User.objects.filter(username=username).exists():
-            messages.error(request, f"Username '{username}' is already taken.")
-        else:
-            user = User.objects.create_user(
-                username=username,
-                password=password,
-                first_name=request.POST.get("first_name", "").strip(),
-                last_name=request.POST.get("last_name", "").strip(),
-                email=request.POST.get("email", "").strip(),
-                is_active=False,
-            )
-            TrainerProfile.objects.create(
-                user=user,
-                domain=request.POST.get("domain", "").strip(),
-                phone=request.POST.get("phone", "").strip(),
-            )
-            messages.success(request, "Trainer account created. Please wait for administrator approval before signing in.")
-            return redirect("login")
-
-    return render(request, "dashboard/trainer_register.html", {
-    })
-
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        profile = self.request.user.profile
+        if profile.must_change_password:
+            profile.must_change_password = False
+            profile.save(update_fields=["must_change_password"])
+        messages.success(self.request, "Your password has been changed successfully.")
+        return response
 
 def logout_view(request):
     logout(request)
@@ -256,26 +145,22 @@ def student_dashboard(request):
     colleges = [profile.college] if profile.college else []
     enrollments = profile.enrollments.select_related("course").all()
     attendance_records = list(profile.attendance_records.all())
-    session_attendance = list(profile.daily_attendance.all())
+    daily_attendance = list(profile.daily_attendance.all()[:12])
     assessments = list(profile.assessments.all())
     strengths = profile.strengths.all()
     improvements = profile.improvement_areas.all()
     activities = profile.activities.all()[:6]
-    college_external_tests = (
-        profile.college.online_tests.filter(external_url__gt="").order_by("-opens_at")[:5]
-        if profile.college_id else []
-    )
 
     # ---- Attendance summary ----
-    total_classes = len(session_attendance) if session_attendance else sum(a.total_classes for a in attendance_records)
-    total_present = sum(1 for a in session_attendance if a.is_present) if session_attendance else sum(a.present for a in attendance_records)
-    total_absent = sum(1 for a in session_attendance if not a.is_present) if session_attendance else sum(a.absent for a in attendance_records)
+    total_classes = sum(a.total_classes for a in attendance_records)
+    total_present = sum(a.present for a in attendance_records)
+    total_absent = sum(a.absent for a in attendance_records)
     total_late = sum(a.late for a in attendance_records)
     overall_attendance = round((total_present / total_classes) * 100) if total_classes else 0
 
     attendance_trend = {
-        "labels": [a.date.strftime("%d %b") for a in reversed(session_attendance)] if session_attendance else [a.month_label for a in attendance_records],
-        "values": [round(sum(1 for item in session_attendance[:index + 1] if item.is_present) / (index + 1) * 100) for index in range(len(session_attendance))] if session_attendance else [a.percentage for a in attendance_records],
+        "labels": [a.month_label for a in attendance_records],
+        "values": [a.percentage for a in attendance_records],
     }
 
     # ---- Assessment summary ----
@@ -324,6 +209,7 @@ def student_dashboard(request):
         "total_absent": total_absent,
         "total_late": total_late,
         "attendance_trend_json": json.dumps(attendance_trend),
+        "daily_attendance": daily_attendance,
         "assessments_taken": len(assessments),
         "assessments_completed": len(completed_assessments),
         "assessments_pending": len(pending_assessments),
@@ -333,8 +219,6 @@ def student_dashboard(request):
         "overall_grade": overall_grade,
         "grade_label": grade_label,
         "recent_assessments": recent_assessments,
-        "college_external_tests": college_external_tests,
-        "now": timezone.now(),
         "strengths": strengths,
         "improvements": improvements,
         "activities": activities,
@@ -402,17 +286,30 @@ def live_classes_view(request):
 @login_required
 def attendance_view(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
+    today = timezone.localdate()
+    if request.method == "POST":
+        if request.POST.get("action") == "toggle_daily_attendance":
+            record, created = DailyAttendance.objects.get_or_create(
+                student=profile, date=today, session_label="Regular Session",
+            )
+            if not created:
+                record.is_present = not record.is_present
+                record.save(update_fields=["is_present"])
+            messages.success(request, "Attendance marked present for today." if record.is_present else "Today's attendance marked off.")
+        return redirect("attendance")
+    today_attendance = DailyAttendance.objects.filter(
+        student=profile, date=today, session_label="Regular Session",
+    ).first()
     records = list(profile.attendance_records.all())
-    session_records = list(profile.daily_attendance.all())
-    total_classes = len(session_records) if session_records else sum(a.total_classes for a in records)
-    total_present = sum(1 for a in session_records if a.is_present) if session_records else sum(a.present for a in records)
-    total_absent = sum(1 for a in session_records if not a.is_present) if session_records else sum(a.absent for a in records)
+    total_classes = sum(a.total_classes for a in records)
+    total_present = sum(a.present for a in records)
+    total_absent = sum(a.absent for a in records)
     total_late = sum(a.late for a in records)
     overall_attendance = round((total_present / total_classes) * 100) if total_classes else 0
 
     trend = {
-        "labels": [a.date.strftime("%d %b") for a in reversed(session_records)] if session_records else [a.month_label for a in records],
-        "values": [round(sum(1 for item in session_records[:index + 1] if item.is_present) / (index + 1) * 100) for index in range(len(session_records))] if session_records else [a.percentage for a in records],
+        "labels": [a.month_label for a in records],
+        "values": [a.percentage for a in records],
     }
 
     context = {
@@ -421,7 +318,9 @@ def attendance_view(request):
         "page_title": "My Attendance",
         "page_subtitle": "Track your attendance across all courses",
         "records": records,
-        "session_records": session_records,
+        "today_attendance": today_attendance,
+        "daily_attendance": list(profile.daily_attendance.all()[:30]),
+        "today": today,
         "total_classes": total_classes,
         "total_present": total_present,
         "total_absent": total_absent,
@@ -438,18 +337,12 @@ def assessments_view(request):
     assessments = profile.assessments.all()
     completed = assessments.filter(status="completed")
     pending = assessments.filter(status="pending")
-    college_external_tests = (
-        profile.college.online_tests.filter(external_url__gt="").order_by("-opens_at")
-        if profile.college_id else []
-    )
     context = {
         **_base_context(profile),
         "active_page": "assessments",
         "page_title": "Assessments",
         "page_subtitle": f"{completed.count()} completed &middot; {pending.count()} pending",
         "assessments": assessments,
-        "college_external_tests": college_external_tests,
-        "now": timezone.now(),
     }
     return render(request, "dashboard/assessments.html", context)
 
@@ -698,10 +591,6 @@ def results_reports_view(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
     enrollments = profile.enrollments.select_related("course").all()
     assessments = list(profile.assessments.filter(status="completed", score__isnull=False))
-    published_results = list(profile.college_results.filter(college=profile.college) if profile.college_id else [])
-    result_documents = DepartmentResultDocument.objects.filter(
-        college=profile.college,
-    ).filter(semester__iexact=profile.semester_label) if profile.college_id and profile.semester_label else DepartmentResultDocument.objects.none()
 
     trend_source = sorted(assessments, key=lambda a: a.date)[-6:]
     trend = {
@@ -718,8 +607,6 @@ def results_reports_view(request):
         "enrollments": enrollments,
         "avg_score": avg_score,
         "trend_json": json.dumps(trend),
-        "published_results": published_results,
-        "result_documents": result_documents,
     }
     return render(request, "dashboard/results_reports.html", context)
 

@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("dashboard", "0005_dailyattendance_session"),
+        ("dashboard", "0004_dailyattendance"),
     ]
 
     operations = [

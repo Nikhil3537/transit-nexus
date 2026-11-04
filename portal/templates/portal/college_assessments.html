@@ -2,6 +2,7 @@
 {% block title %}Assessments · Transit Nexus{% endblock %}
 {% block content %}
 {% include "portal/_college_csv_upload.html" %}
+<p class="muted">Student result uploads must include student ID, department, semester, assessment name, subject, score, date, and status. Results appear on the matching student's dashboard.</p>
 {% if messages %}{% for message in messages %}<p class="alert-{{ message.tags }}">{{ message }}</p>{% endfor %}{% endif %}
 {% if external_form.errors %}<section class="panel alert-error"><h3>Test link not saved</h3>{{ external_form.errors }}</section>{% endif %}
 <section class="panel">

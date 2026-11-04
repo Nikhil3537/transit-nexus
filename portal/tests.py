@@ -12,7 +12,6 @@ from .models import (
     OnlineTest, OnlineTestAnswer, OnlineTestAttempt, OnlineTestQuestion,
     PlacementRecord, SyllabusCoverage, TrainerAvailability, TrainerProfile,
 )
-from .forms import CollegeExternalTestForm
 
 COLLEGE_UPLOAD_PAGE_TEST_NAMES = {
     "students": "college_students",
@@ -661,14 +660,11 @@ class PlatformCollegeWorkspaceTests(TestCase):
             self.assertContains(response, visible_record)
         self.assertNotContains(response, "South Student")
 
-    def test_platform_admin_can_delete_entire_college_workspace(self):
+    def test_platform_admin_can_delete_college_workspace_and_name_based_records(self):
         PartnerCollege.objects.create(name=self.college.college_name)
-        student_user = User.objects.create_user(username="delete-student", password="test-pass")
-        StudentProfile.objects.create(user=student_user, college=self.college)
         CollegeStudent.objects.create(college=self.college, name="North Student", department="CSE")
         AdminStudentRecord.objects.create(
             name="Imported North Student", college_name=self.college.college_name,
-            department="CSE",
         )
         AdminInvoice.objects.create(
             invoice_no="NORTH-DELETE", college_name=self.college.college_name,
@@ -676,13 +672,12 @@ class PlatformCollegeWorkspaceTests(TestCase):
         )
 
         response = self.client.post(reverse("admin_college_detail", args=[self.college.pk]), {
-            "action": "delete_college", "confirm": "yes",
+            "action": "delete_college",
         })
 
         self.assertRedirects(response, reverse("admin_colleges"))
         self.assertFalse(CollegeProfile.objects.filter(pk=self.college.pk).exists())
         self.assertFalse(User.objects.filter(pk=self.college_user.pk).exists())
-        self.assertFalse(User.objects.filter(pk=student_user.pk).exists())
         self.assertFalse(PartnerCollege.objects.filter(name=self.college.college_name).exists())
         self.assertFalse(AdminStudentRecord.objects.filter(college_name=self.college.college_name).exists())
         self.assertFalse(AdminInvoice.objects.filter(college_name=self.college.college_name).exists())
@@ -795,19 +790,6 @@ class OnlineTestWorkflowTests(TestCase):
             options=["3", "4"], correct_answers=["4"], points=5, order=0,
         )
         return online_test, question
-
-    def test_college_external_form_accepts_bare_testmoz_participant_url(self):
-        now = timezone.localtime()
-        form = CollegeExternalTestForm(data={
-            "title": "KSSEM Testmoz Assessment",
-            "instructions": "Use the supplied passcode.",
-            "external_url": "testmoz.com/13656996",
-            "opens_at": (now + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M"),
-            "closes_at": (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M"),
-            "duration_minutes": "30",
-        })
-        self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data["external_url"], "https://testmoz.com/13656996")
 
     def test_trainer_creates_scheduled_test_and_objective_question(self):
         self.client.force_login(self.trainer_user)

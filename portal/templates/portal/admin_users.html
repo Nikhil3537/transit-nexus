@@ -50,12 +50,27 @@
 <section class="panel" style="margin-top: 1rem;">
   <div class="panel-head"><h3>Create College Leadership Login</h3><span class="muted">Principal and Placement accounts see all students; HOD accounts see one department</span></div>
   <form method="post" class="form-grid">
-    {% csrf_token %}<input type="hidden" name="action" value="create">
-    <label>Account type<select name="role" required><option value="principal">Principal</option><option value="placement">Placement Department</option><option value="hod">Head of Department (HOD)</option></select></label>
-    <label>College <span class="muted">(existing college)</span><select name="college_name" required><option value="">Select college</option>{% for college in college_options %}<option value="{{ college }}">{{ college }}</option>{% endfor %}</select></label>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="create">
+    <label>Account type
+      <select name="role" required>
+        <option value="principal">Principal</option>
+        <option value="placement">Placement Department</option>
+        <option value="hod">Head of Department (HOD)</option>
+      </select>
+    </label>
+    <label>College <span class="muted">(existing college)</span>
+      <select name="college_name" required>
+        <option value="">Select college</option>
+        {% for college in college_options %}<option value="{{ college }}">{{ college }}</option>{% endfor %}
+      </select>
+    </label>
     <label>Department <span class="muted">(HOD only)</span><input name="department" placeholder="e.g. Computer Science and Engineering"></label>
-    <label>Username<input name="username" required></label><label>Temporary password<input name="password" type="password" required></label>
-    <label>First name<input name="first_name"></label><label>Last name<input name="last_name"></label><label>Email<input name="email" type="email"></label>
+    <label>Username<input name="username" required></label>
+    <label>Temporary password<input name="password" type="password" required></label>
+    <label>First name<input name="first_name"></label>
+    <label>Last name<input name="last_name"></label>
+    <label>Email<input name="email" type="email"></label>
     <div><button class="btn btn-primary" type="submit">Create College Login</button></div>
   </form>
 </section>
@@ -73,7 +88,6 @@
       <label>First name<input name="first_name"></label>
       <label>Last name<input name="last_name"></label>
       <label>Email<input name="email" type="email"></label>
-      <label>Phone number<input name="phone" type="tel" autocomplete="tel"></label>
 
       {% if college_options %}
         <label>College <span class="muted">(required)</span>
@@ -99,6 +113,7 @@
         </label>
       {% else %}
         <label>Department <span class="muted">(required)</span><input name="department" required></label>
+        <label>Phone number<input name="phone" type="tel" autocomplete="tel"></label>
       {% endif %}
 
       <div><button class="btn btn-primary" type="submit">Create Student Account</button></div>
@@ -154,16 +169,15 @@
     </div>
   </div>
   <table class="data-table">
-    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>College</th><th>Email</th><th>Access</th><th>Action</th></tr></thead>
+    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Email</th><th>Access</th><th>Action</th></tr></thead>
     <tbody>
     {% for r in rows %}
       <tr>
         <td>{{ r.user.username }}</td><td>{{ r.user.first_name }} {{ r.user.last_name }}</td>
-        <td><span class="tag tag-good">{{ r.role }}</span></td><td>{{ r.assigned_college|default:"—" }}</td><td>{{ r.user.email|default:"—" }}</td>
+        <td><span class="tag tag-good">{{ r.role }}</span></td><td>{{ r.user.email|default:"—" }}</td>
         <td>{% if r.user.is_active %}<span class="tag tag-good">Approved</span>{% else %}<span class="tag tag-warn">Pending</span>{% endif %}</td>
         <td>
           {% if r.user != request.user %}
-          {% if r.role == "Trainer" %}<form method="post" class="inline-form" style="margin-bottom:6px;">{% csrf_token %}<input type="hidden" name="action" value="assign_trainer_college"><input type="hidden" name="user_id" value="{{ r.user.id }}"><select name="college_id" required><option value="">Assign college</option>{% for college in college_records %}<option value="{{ college.pk }}">{{ college.college_name }}</option>{% endfor %}</select><button class="btn btn-secondary" type="submit">Assign</button></form>{% endif %}
           <form method="post">
             {% csrf_token %}
             <input type="hidden" name="user_id" value="{{ r.user.id }}">
@@ -173,7 +187,7 @@
           {% else %}<span class="muted">Current account</span>{% endif %}
         </td>
       </tr>
-    {% empty %}<tr><td colspan="7">No accounts found.</td></tr>{% endfor %}
+    {% endfor %}
     </tbody>
   </table>
 </section>

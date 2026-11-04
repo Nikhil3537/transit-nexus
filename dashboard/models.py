@@ -11,6 +11,10 @@ class StudentProfile(models.Model):
     semester_range = models.CharField(max_length=100, default="May - Aug 2025")
     department = models.CharField(max_length=120, blank=True)
     total_learning_hours = models.PositiveIntegerField(default=0)
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text="Require the student to choose a new password at first sign-in.",
+    )
 
     def __str__(self):
         return self.user.get_full_name() or self.user.username
@@ -75,13 +79,16 @@ class AttendanceRecord(models.Model):
 class DailyAttendance(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name="daily_attendance")
     date = models.DateField()
-    session_name = models.CharField(max_length=150, default="General Session")
+    session_label = models.CharField(max_length=120, default="Regular Session")
     is_present = models.BooleanField(default=True)
     marked_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-date"]
-        constraints = [models.UniqueConstraint(fields=["student", "date", "session_name"], name="unique_student_session_attendance")]
+        ordering = ["-date", "-marked_at"]
+        constraints = [models.UniqueConstraint(
+            fields=["student", "date", "session_label"],
+            name="unique_student_daily_attendance_session",
+        )]
 
 
 class Assessment(models.Model):

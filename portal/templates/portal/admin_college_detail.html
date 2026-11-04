@@ -13,22 +13,15 @@
 <section class="panel">
   <div class="panel-head"><h3>{{ college.college_name }}</h3><span class="muted">{{ college.location }} · {{ college.academic_year }} · {{ college.semester_label }}</span></div>
   <p>College administrator: {{ college.user.get_full_name|default:college.user.username }}{% if college.user.email %} · {{ college.user.email }}{% endif %}</p>
-  <form method="post" onsubmit="return confirm('Delete {{ college.college_name|escapejs }} and all related data permanently? This cannot be undone.');">
-    {% csrf_token %}<input type="hidden" name="action" value="delete_college"><input type="hidden" name="confirm" value="yes">
-    <button class="btn btn-danger" type="submit">Delete entire college</button>
+  <form method="post" onsubmit="return confirm('Delete {{ college.college_name|escapejs }} and all of its data permanently?');">
+    {% csrf_token %}<input type="hidden" name="action" value="delete_college"><button class="btn btn-danger" type="submit">Delete college</button>
   </form>
   <nav class="college-section-nav" aria-label="College records">
     <a href="#students">Students</a><a href="#programs">Training Programs</a><a href="#assessments">Assessments</a><a href="#attendance">Attendance</a><a href="#payments">Payments</a><a href="#placements">Placements</a><a href="#syllabus">Syllabus</a><a href="#reports">Reports</a>
   </nav>
 </section>
 <section class="panel" id="students">
-  <div class="panel-head">
-    <h3>Students</h3><span>{{ total_students }} records</span>
-    <form method="post" onsubmit="return confirm('Delete every Architecture student account and record from {{ college.college_name|escapejs }}? This cannot be undone.');">
-      {% csrf_token %}<input type="hidden" name="action" value="delete_architecture_students"><input type="hidden" name="confirm" value="yes">
-      <button class="btn btn-danger" type="submit">Delete Architecture students</button>
-    </form>
-  </div>
+  <div class="panel-head"><h3>Students</h3><span>{{ total_students }} records</span></div>
   <details class="manual-entry"><summary>Add student</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_student">{{ student_form.as_p }}<button class="btn btn-primary" type="submit">Save student</button></form></details>
   {% for group in student_groups %}
     <h4>{{ group.department }} · {{ group.semester }} <span class="muted">({{ group.students|length }})</span></h4>

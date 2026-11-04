@@ -1,20 +1,11 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.utils import timezone
-from dashboard.models import StudentProfile
 
 from .models import (
-    AdminInvoice, CollegeAssessment, CollegeProfile, CollegeProgram, CollegeQuickReport, CollegeResult, CollegeStudent,
-    DepartmentResultDocument,
+    AdminInvoice, CollegeAssessment, CollegeProfile, CollegeProgram, CollegeQuickReport, CollegeStudent,
     Department, Faculty, OnlineTest, PlacementRecord, SyllabusCoverage,
 )
-
-
-DATETIME_LOCAL_INPUT_FORMATS = [
-    "%Y-%m-%dT%H:%M",
-    "%Y-%m-%dT%H:%M:%S",
-    "%Y-%m-%dT%H:%M:%S.%f",
-]
 
 
 ACADEMIC_PROGRAMME_CHOICES = [
@@ -122,16 +113,6 @@ ACADEMIC_PROGRAMME_CHOICES = [
 ]
 
 
-class ParticipantURLField(forms.URLField):
-    """Accept a pasted domain while storing a valid absolute participant URL."""
-
-    def to_python(self, value):
-        value = (value or "").strip()
-        if value and "://" not in value:
-            value = f"https://{value}"
-        return super().to_python(value)
-
-
 class CollegeStudentForm(forms.ModelForm):
     avg_score = forms.DecimalField(required=False, min_value=0, max_value=100)
     attendance_pct = forms.DecimalField(required=False, min_value=0, max_value=100)
@@ -147,10 +128,14 @@ class CollegeStudentForm(forms.ModelForm):
 
 class CollegeStudentAccountForm(forms.Form):
     username = forms.CharField(max_length=150, label="Username")
-    password = forms.CharField(min_length=8, widget=forms.PasswordInput, label="Temporary password")
+    password = forms.CharField(
+        min_length=8, required=False, widget=forms.PasswordInput,
+        label="Temporary password (optional)",
+        help_text="Leave blank to generate a secure temporary password automatically.",
+    )
     first_name = forms.CharField(max_length=150, label="First name")
     last_name = forms.CharField(max_length=150, required=False, label="Last name")
-    email = forms.EmailField(required=False)
+    email = forms.EmailField(label="Student email")
     phone = forms.CharField(max_length=30, required=False, label="Phone number")
     department = forms.CharField(max_length=120)
 
@@ -169,52 +154,6 @@ class CollegeAssessmentForm(forms.ModelForm):
             "date": forms.DateInput(attrs={"type": "date"}),
             "avg_score": forms.NumberInput(attrs={"min": "0", "max": "100", "step": "0.1"}),
         }
-
-
-class CollegeResultForm(forms.ModelForm):
-    class Meta:
-        model = CollegeResult
-        fields = ["student", "semester", "exam_name", "subject", "score", "max_score", "published_at", "remarks"]
-        widgets = {
-            "score": forms.NumberInput(attrs={"min": "0", "step": "0.01"}),
-            "max_score": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
-            "published_at": forms.DateInput(attrs={"type": "date"}),
-        }
-
-    def __init__(self, *args, college=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["student"].queryset = (
-            StudentProfile.objects.filter(college=college).select_related("user").order_by("user__first_name", "user__last_name", "user__username")
-            if college else StudentProfile.objects.none()
-        )
-
-    def clean(self):
-        cleaned = super().clean()
-        score = cleaned.get("score")
-        max_score = cleaned.get("max_score")
-        if score is not None and max_score is not None and score > max_score:
-            self.add_error("score", "Score cannot be greater than the maximum score.")
-        return cleaned
-
-
-class DepartmentResultDocumentForm(forms.ModelForm):
-    class Meta:
-        model = DepartmentResultDocument
-        fields = ["semester", "title", "pdf"]
-        widgets = {"pdf": forms.ClearableFileInput(attrs={"accept": "application/pdf"})}
-
-    def clean_pdf(self):
-        uploaded = self.cleaned_data["pdf"]
-        if uploaded and (not uploaded.name.lower().endswith(".pdf") or uploaded.content_type not in {"application/pdf", "application/x-pdf"}):
-            raise forms.ValidationError("Upload a PDF file only.")
-        if uploaded and uploaded.size > 10 * 1024 * 1024:
-            raise forms.ValidationError("The PDF must be 10 MB or smaller.")
-        return uploaded
-
-
-class TrainerFeedbackForm(forms.Form):
-    rating = forms.IntegerField(min_value=1, max_value=5, initial=5, label="Rating (1–5)")
-    comments = forms.CharField(widget=forms.Textarea(attrs={"rows": 4}), label="Feedback")
 
 
 class FacultyForm(forms.ModelForm):
@@ -265,7 +204,7 @@ class CollegeProgramForm(forms.ModelForm):
 
 
 class DepartmentAttendanceForm(forms.ModelForm):
-    name = forms.CharField(max_length=150, label="Academic programme or department")
+    name = forms.ChoiceField(choices=ACADEMIC_PROGRAMME_CHOICES, label="Academic programme or department")
     custom_department = forms.CharField(
         max_length=150,
         required=False,
@@ -309,15 +248,9 @@ class CollegeQuickReportForm(forms.ModelForm):
 
 class OnlineTestForm(forms.ModelForm):
     college = forms.ModelChoiceField(queryset=CollegeProfile.objects.none(), required=True)
-    external_url = ParticipantURLField(required=False, help_text="Optional Testmoz participant URL")
-    opens_at = forms.DateTimeField(
-        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
-        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
-    )
-    closes_at = forms.DateTimeField(
-        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
-        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
-    )
+    external_url = forms.URLField(required=False, help_text="Optional Testmoz URL")
+    opens_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
+    closes_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
 
     class Meta:
         model = OnlineTest
@@ -345,19 +278,13 @@ class OnlineTestForm(forms.ModelForm):
 
 
 class CollegeExternalTestForm(forms.ModelForm):
-    external_url = ParticipantURLField(
+    external_url = forms.URLField(
         required=True,
         label="Test URL",
-        help_text="Paste the participant link, for example testmoz.com/13656996. The https:// prefix is added automatically.",
+        help_text="Paste the participant link from Testmoz, not your Testmoz account URL.",
     )
-    opens_at = forms.DateTimeField(
-        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
-        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
-    )
-    closes_at = forms.DateTimeField(
-        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
-        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
-    )
+    opens_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
+    closes_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
 
     class Meta:
         model = OnlineTest
