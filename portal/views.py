@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import OperationalError, connections, transaction
+from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
@@ -310,6 +311,15 @@ def _canonical_department_name(value):
         if lookup == canonical_name.casefold() or lookup in {alias.casefold() for alias in aliases}:
             return canonical_name
     return raw_name
+
+
+ARCHITECTURE_DEPARTMENT_ALIASES = (
+    "Architecture & Design",
+    "Architecture and Design",
+    "Bachelor of Architecture (B.Arch)",
+    "B.Arch",
+    "Architecture",
+)
 
 
 def _department_sort_key(name):
@@ -846,6 +856,34 @@ def admin_college_detail(request, college_id):
     }
     if request.method == "POST":
         action = request.POST.get("action", "")
+        if action == "delete_architecture_students":
+            if request.POST.get("confirm") != "yes":
+                messages.error(request, "Confirm the Architecture student deletion to continue.")
+                return redirect(f"{reverse('admin_college_detail', args=[college.pk])}#students")
+
+            architecture_departments = Q()
+            for alias in ARCHITECTURE_DEPARTMENT_ALIASES:
+                architecture_departments |= Q(department__iexact=alias)
+            with transaction.atomic():
+                architecture_accounts = StudentProfile.objects.filter(
+                    college=college,
+                ).filter(architecture_departments)
+                student_user_ids = list(architecture_accounts.values_list("user_id", flat=True))
+                account_count = len(student_user_ids)
+                User.objects.filter(pk__in=student_user_ids).delete()
+
+                manual_count, _ = CollegeStudent.objects.filter(
+                    college=college,
+                ).filter(architecture_departments).delete()
+                imported_count, _ = AdminStudentRecord.objects.filter(
+                    college_name__iexact=college.college_name,
+                ).filter(architecture_departments).delete()
+            messages.success(
+                request,
+                f"Deleted {account_count} student account(s), {manual_count} manual record(s), "
+                f"and {imported_count} imported record(s) from Architecture for {college.college_name}.",
+            )
+            return redirect(f"{reverse('admin_college_detail', args=[college.pk])}#students")
         if action == "toggle_attendance":
             department = college.departments.filter(pk=request.POST.get("department_id", "")).first()
             enabled_value = request.POST.get("enabled", "")
