@@ -231,10 +231,7 @@ def admin_dashboard(request):
         colleges.append({
             "profile": college,
             "name": college.college_name,
-            "students_count": (
-                college.student_accounts.count() + college.students.count()
-                + len(_unmatched_admin_student_records(college))
-            ),
+            "students_count": _college_unique_student_count(college),
             "active_programs": college.programs.filter(status="active").count(),
             "pending_payment": partner.pending_payment if partner else 0,
             "status": partner.status if partner else "active",
@@ -392,6 +389,29 @@ def _college_student_accounts(profile, department_scope=""):
         seen.add(key)
         unique_accounts.append(student)
     return unique_accounts
+
+
+def _college_unique_student_count(profile, department_scope=""):
+    """Count one student per college/department identity across all data sources."""
+    keys = set()
+    accounts = profile.student_accounts.select_related("user")
+    manual_students = profile.students.all()
+    records = AdminStudentRecord.objects.filter(college_name__iexact=profile.college_name)
+    if department_scope:
+        accounts = accounts.filter(department__iexact=department_scope)
+        manual_students = manual_students.filter(department__iexact=department_scope)
+        records = records.filter(department__iexact=department_scope)
+
+    for student in accounts:
+        keys.add(_student_identity_key(
+            student.user.get_full_name() or student.user.username,
+            student.department,
+        ))
+    for student in manual_students:
+        keys.add(_student_identity_key(student.name, student.department))
+    for record in records:
+        keys.add(_student_identity_key(record.name, record.department))
+    return len(keys)
 
 
 def _admin_student_records_by_name(profile):
@@ -558,13 +578,7 @@ def college_dashboard(request):
     if department_scope:
         departments = [d for d in departments if _canonical_department_name(d.name) == department_scope]
 
-    department_scope = _college_department_scope(request)
-    scoped_accounts = profile.student_accounts.filter(department__iexact=department_scope) if department_scope else profile.student_accounts
-    scoped_students = profile.students.filter(department__iexact=department_scope) if department_scope else profile.students
-    scoped_records = _unmatched_admin_student_records(profile)
-    if department_scope:
-        scoped_records = [record for record in scoped_records if _canonical_department_name(record.department) == department_scope]
-    tracked_students = scoped_accounts.count() + scoped_students.count() + len(scoped_records)
+    tracked_students = _college_unique_student_count(profile, department_scope)
     total_students = tracked_students or sum(d.total_students for d in departments)
     if departments:
         avg_performance = round(sum(float(d.avg_performance) * d.total_students for d in departments) / total_students, 1) if total_students else 0
@@ -710,10 +724,7 @@ def admin_colleges(request):
             "profile": college,
             "name": college.college_name,
             "location": college.location,
-            "students_count": (
-                college.student_accounts.count() + college.students.count()
-                + len(_unmatched_admin_student_records(college))
-            ),
+            "students_count": _college_unique_student_count(college),
             "active_programs": college.programs.filter(status="active").count(),
             "pending_payment": partner.pending_payment if partner else 0,
             "status": partner.status if partner else "active",
