@@ -30,7 +30,19 @@
         <span class="login-form-icon"><i class="fa-solid fa-arrow-right-to-bracket"></i></span>
         <p class="login-form-kicker">YOUR PORTAL IS READY</p>
         <h2>Welcome back</h2>
-        <p class="auth-sub">Sign in to manage your college workspace.</p>
+        <p class="auth-sub">Choose your account type to continue to the right workspace.</p>
+      </div>
+
+      <div class="login-role-switch" role="tablist" aria-label="Choose account type">
+        <a class="login-role-option {% if login_role == 'college' %}is-active{% endif %}" href="{% url 'login' %}?role=college" role="tab" aria-selected="{% if login_role == 'college' %}true{% else %}false{% endif %}">
+          <i class="fa-solid fa-building-columns" aria-hidden="true"></i><span>College Login<small>Manage your college workspace</small></span>
+        </a>
+        <a class="login-role-option {% if login_role == 'trainer' %}is-active{% endif %}" href="{% url 'login' %}?role=trainer" role="tab" aria-selected="{% if login_role == 'trainer' %}true{% else %}false{% endif %}">
+          <i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i><span>Trainer Login<small>Manage training and students</small></span>
+        </a>
+        <a class="login-role-option {% if login_role == 'student' %}is-active{% endif %}" href="{% url 'login' %}?role=student" role="tab" aria-selected="{% if login_role == 'student' %}true{% else %}false{% endif %}">
+          <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i><span>Student Login<small>Access your learning portal</small></span>
+        </a>
       </div>
 
       {% if messages %}
@@ -41,8 +53,9 @@
 
       <form method="post">
         {% csrf_token %}
-        <label for="username">College username</label>
-        <input type="text" id="username" name="username" placeholder="Enter your college username" autocomplete="username" required autofocus>
+        <input type="hidden" name="login_role" value="{{ login_role }}">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" placeholder="Enter your {{ login_role }} username" autocomplete="username" required autofocus>
 
         <label for="password">Password</label>
         <div class="password-input-wrap">
@@ -50,11 +63,19 @@
           <button type="button" class="password-visibility-toggle" id="togglePassword" aria-label="Show password" title="Show password" aria-pressed="false"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>
         </div>
 
+        {% if login_role == 'student' %}
+          <label for="semester">Student semester</label>
+          <select id="semester" name="semester" required>
+            <option value="">Select your semester</option>
+            {% for semester in semester_options %}<option value="{{ semester }}" {% if selected_semester == semester %}selected{% endif %}>{{ semester }}</option>{% endfor %}
+          </select>
+        {% endif %}
+
         <button type="submit" class="btn-primary login-submit">Sign in <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
       </form>
 
       <p class="auth-hint"><a href="{% url 'password_reset' %}">Forgot your password?</a></p>
-      <p class="auth-hint">College accounts are issued by the Transit Nexus platform administrator.</p>
+      <p class="auth-hint">Account access is issued by your college or the Transit Nexus platform administrator.</p>
     </div>
     </div>
     </section>
