@@ -154,15 +154,21 @@ if not DEBUG:
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Send all system mail using the configured Gmail mailbox. Supply that
-# mailbox's Gmail App Password as EMAIL_HOST_PASSWORD in the server environment.
-EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+# In development, print reset links to the server console unless SMTP is configured.
+# Production defaults to SMTP and requires a real provider password.
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "nikhilshivaraj06@gmail.com")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "nikhilshivaraj06@gmail.com")
+SMTP_EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+CONSOLE_EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "").strip()
+if not EMAIL_BACKEND:
+    EMAIL_BACKEND = CONSOLE_EMAIL_BACKEND if DEBUG else SMTP_EMAIL_BACKEND
+elif DEBUG and EMAIL_BACKEND == SMTP_EMAIL_BACKEND and not EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = CONSOLE_EMAIL_BACKEND
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"

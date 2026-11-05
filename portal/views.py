@@ -7,7 +7,9 @@ from datetime import date, datetime
 from functools import wraps
 from urllib.parse import quote
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.core.validators import validate_email
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import OperationalError, connections, transaction
@@ -16,6 +18,7 @@ from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 
 from .models import (
     AdminProfile, PartnerCollege, SupportTicket, AdminProject, SyllabusUpdate,
@@ -1443,10 +1446,10 @@ def bulk_import(request):
                 raw_headers, spreadsheet_rows = _spreadsheet_rows(uploaded)
                 headers = [str(header or "").strip().lower() for header in raw_headers]
                 required = {"username", "password"}
-                if role in {"students", "colleges"}:
-                    required.add("college_name")
                 if role == "students":
-                    required.add("department")
+                    required = {"first_name", "email", "college_name", "department"}
+                elif role == "colleges":
+                    required.add("college_name")
                 if role == "companies":
                     required.add("company_name")
                 missing = sorted(required - set(headers))
@@ -1455,6 +1458,9 @@ def bulk_import(request):
                 else:
                     rows = []
                     seen_usernames = set()
+                    existing_usernames = {
+                        username.casefold() for username in User.objects.values_list("username", flat=True)
+                    }
                     for row_number, raw_row in enumerate(spreadsheet_rows, start=2):
                         row = {
                             (key or "").strip().lower(): (value or "").strip()
@@ -1464,15 +1470,36 @@ def bulk_import(request):
                         if not any(row.values()):
                             continue
                         username = row.get("username", "")
+                        if role == "students":
+                            if not row.get("first_name"):
+                                errors.append(f"Row {row_number}: first_name is required.")
+                            if not row.get("email"):
+                                errors.append(f"Row {row_number}: email is required for password reset.")
+                            else:
+                                try:
+                                    validate_email(row["email"])
+                                except ValidationError:
+                                    errors.append(f"Row {row_number}: enter a valid email address.")
+                            if not username:
+                                username_base = slugify(row.get("email", "").split("@", 1)[0]) or slugify(
+                                    f"{row.get('first_name', '')} {row.get('last_name', '')}"
+                                ) or "student"
+                                username = username_base[:150]
+                                suffix = 1
+                                while username.casefold() in existing_usernames or username.casefold() in seen_usernames:
+                                    suffix_text = str(suffix)
+                                    username = f"{username_base[:150 - len(suffix_text)]}{suffix_text}"
+                                    suffix += 1
+                                row["username"] = username
                         if not username:
                             errors.append(f"Row {row_number}: username is required.")
-                        elif username in seen_usernames:
+                        elif username.casefold() in seen_usernames:
                             errors.append(f"Row {row_number}: duplicate username '{username}' in this file.")
-                        elif User.objects.filter(username=username).exists():
+                        elif username.casefold() in existing_usernames:
                             errors.append(f"Row {row_number}: username '{username}' already exists.")
                         else:
-                            seen_usernames.add(username)
-                        if not row.get("password"):
+                            seen_usernames.add(username.casefold())
+                        if role != "students" and not row.get("password"):
                             errors.append(f"Row {row_number}: password is required.")
                         for field in required - {"username", "password"}:
                             if not row.get(field):
@@ -1493,15 +1520,17 @@ def bulk_import(request):
                         import_succeeded = False
                         for attempt in range(3):
                             try:
+                                imported_credentials = []
                                 with transaction.atomic():
                                     for _, row in rows:
+                                        temporary_password = row.get("password") or secrets.token_urlsafe(12)
                                         user = User.objects.create_user(
                                             username=row["username"],
-                                            password=row["password"],
+                                            password=temporary_password,
                                             first_name=row.get("first_name", ""),
                                             last_name=row.get("last_name", ""),
                                             email=row.get("email", ""),
-                                            is_active=False,
+                                            is_active=(role == "students"),
                                         )
                                         if role == "students":
                                             student_college = CollegeProfile.objects.get(college_name__iexact=row["college_name"])
@@ -1513,8 +1542,15 @@ def bulk_import(request):
                                                 name=user.get_full_name() or user.username,
                                                 college_name=row["college_name"],
                                                 department=row["department"],
-                                                status="Pending",
+                                                status="Active",
                                             )
+                                            imported_credentials.append({
+                                                "student": user.get_full_name() or user.username,
+                                                "college": row["college_name"],
+                                                "student_id": user.username,
+                                                "temporary_password": temporary_password,
+                                                "email": user.email,
+                                            })
                                         elif role == "colleges":
                                             college_name = row["college_name"]
                                             CollegeProfile.objects.create(
@@ -1539,6 +1575,17 @@ def bulk_import(request):
                                 time.sleep(0.5 * (attempt + 1))
 
                         if import_succeeded:
+                            if role == "students":
+                                output = io.StringIO(newline="")
+                                writer = csv.DictWriter(
+                                    output,
+                                    fieldnames=["student", "college", "student_id", "temporary_password", "email"],
+                                )
+                                writer.writeheader()
+                                writer.writerows(imported_credentials)
+                                response = HttpResponse(output.getvalue(), content_type="text/csv; charset=utf-8")
+                                response["Content-Disposition"] = 'attachment; filename="student_credentials.csv"'
+                                return response
                             messages.success(request, f"Imported {len(rows)} pending {role} account(s). Review and approve them in Users & Roles.")
                             return redirect("bulk_import")
                         errors.append("The database is busy. Stop any other Django server, shell, or import process and try again.")

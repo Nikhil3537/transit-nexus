@@ -1,6 +1,10 @@
+import csv
+import io
+
 from django.contrib.auth.models import User
+from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from datetime import date, timedelta
@@ -35,7 +39,7 @@ class BulkImportTests(TestCase):
         file = SimpleUploadedFile("records.csv", content.encode("utf-8"), content_type="text/csv")
         return self.client.post(reverse("bulk_import"), {"role": role, "file": file})
 
-    def test_imports_each_account_type_as_pending(self):
+    def test_imports_student_accounts_active_and_other_roles_pending(self):
         college_user = User.objects.create_user(username="bulk-college-admin", password="test-pass")
         CollegeProfile.objects.create(user=college_user, college_name="North College")
         cases = [
@@ -47,10 +51,14 @@ class BulkImportTests(TestCase):
         for role, content in cases:
             with self.subTest(role=role):
                 response = self.upload(role, content)
-                self.assertRedirects(response, reverse("bulk_import"))
+                if role == "students":
+                    self.assertEqual(response.status_code, 200)
+                    self.assertIn("attachment; filename=\"student_credentials.csv\"", response["Content-Disposition"])
+                else:
+                    self.assertRedirects(response, reverse("bulk_import"))
                 username = {"students": "student-1", "colleges": "college-1", "trainers": "trainer-1", "companies": "company-1"}[role]
                 user = User.objects.get(username=username)
-                self.assertFalse(user.is_active)
+                self.assertEqual(user.is_active, role == "students")
         self.assertTrue(StudentProfile.objects.filter(
             user__username="student-1", college__college_name="North College", department="CSE",
         ).exists())
@@ -59,6 +67,36 @@ class BulkImportTests(TestCase):
         self.assertTrue(PartnerCollege.objects.filter(name="North College").exists())
         self.assertTrue(TrainerProfile.objects.filter(user__username="trainer-1").exists())
         self.assertTrue(CompanyProfile.objects.filter(user__username="company-1", company_name="Example Ltd").exists())
+
+    def test_student_import_generates_credentials_and_enables_first_login(self):
+        college_user = User.objects.create_user(username="generated-college-admin", password="test-pass")
+        CollegeProfile.objects.create(user=college_user, college_name="North College")
+        response = self.upload(
+            "students",
+            "username,password,first_name,last_name,email,college_name,department\n"
+            ",,Avery,Student,avery.student@example.com,North College,CSE\n",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        credentials = next(csv.DictReader(io.StringIO(response.content.decode("utf-8"))))
+        user = User.objects.get(username=credentials["student_id"])
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.check_password(credentials["temporary_password"]))
+        self.assertTrue(user.profile.must_change_password)
+        self.assertEqual(user.profile.college.college_name, "North College")
+
+        self.client.force_login(college_user)
+        roster = self.client.get(reverse("college_students"))
+        self.assertContains(roster, credentials["student_id"])
+
+        self.client.post(reverse("logout"))
+        login_response = self.client.post(reverse("login"), {
+            "login_role": "student",
+            "username": credentials["student_id"],
+            "password": credentials["temporary_password"],
+            "semester": "Even Semester",
+        })
+        self.assertRedirects(login_response, reverse("password_change"))
 
     def test_invalid_file_does_not_partially_import(self):
         college_user = User.objects.create_user(username="bulk-invalid-college-admin", password="test-pass")
@@ -112,6 +150,24 @@ class BulkImportTests(TestCase):
             college_name="North College",
             department="CSE",
         ).exists())
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class PasswordResetFlowTests(TestCase):
+    def test_active_student_can_request_password_reset_email(self):
+        student = User.objects.create_user(
+            username="password-reset-student",
+            password="temporary-password",
+            email="student@example.com",
+            is_active=True,
+        )
+        StudentProfile.objects.create(user=student)
+
+        response = self.client.post(reverse("password_reset"), {"email": student.email})
+
+        self.assertRedirects(response, reverse("password_reset_done"))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("/reset/", mail.outbox[0].body)
 
 
 class StudentCollegeFlowTests(TestCase):

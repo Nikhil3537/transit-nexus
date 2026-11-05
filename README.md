@@ -96,9 +96,10 @@ python manage.py runserver
 
 The login page includes a **Forgot your password?** link. Users enter the
 email address saved on their account, receive a time-limited reset link, and
-choose a new password from that link. Configure `EMAIL_HOST_PASSWORD` with a
-Gmail app password (or use another SMTP provider) before testing email
-delivery; the related settings are listed in `.env.example`.
+choose a new password from that link. With `DEBUG=true`, reset emails are
+printed to the development server console by default. For real delivery, use
+SMTP and configure `EMAIL_HOST_PASSWORD` with a Gmail app password (or use
+another SMTP provider); the related settings are listed in `.env.example`.
 
 If `POSTGRES_DB` is not set, the project uses the local SQLite database. Create
 the PostgreSQL database first with `CREATE DATABASE transit_nexus;`, then run

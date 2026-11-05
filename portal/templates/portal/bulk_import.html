@@ -2,7 +2,7 @@
 {% block title %}Bulk Import · Transit Nexus{% endblock %}
 {% block content %}
 <section class="panel">
-  <div class="panel-head"><h3>Import Accounts from CSV or Excel</h3><span class="muted">New accounts will be pending approval</span></div>
+  <div class="panel-head"><h3>Import Accounts from CSV or Excel</h3><span class="muted">Student accounts are activated; other account types require approval</span></div>
   <form method="post" enctype="multipart/form-data" class="form-grid">
     {% csrf_token %}
     <label>Account type
@@ -26,7 +26,7 @@
 </section>
 <section class="panel">
   <div class="panel-head"><h3>CSV Templates</h3><span class="muted">Use one file per account type</span></div>
-  <p>Every row needs a unique username and password. Student and college rows also need a college name; student rows need a department; company rows need a company name.</p>
+  <p>Student rows need a first name, email, college name, and department. Leave username and password blank to generate student sign-in credentials; the import downloads them once as a CSV. Students must change the temporary password at first sign-in. Other account types still need a username and password.</p>
   <div class="form-grid">
     {% for role in template_roles %}
     <div><a class="btn btn-secondary" href="{% url 'bulk_import' %}?template={{ role }}"><i class="fa-solid fa-download"></i> {{ role|title }} template</a></div>
