@@ -71,6 +71,13 @@ a { text-decoration: none; color: inherit; }
 .login-form-kicker { margin: 0 0 8px; color: #627392; font-size: 10px; font-weight: 800; letter-spacing: 1.4px; }
 .login-form-panel .auth-card h2 { margin: 0 0 7px; color: #152544; font-size: 30px; letter-spacing: -.7px; }
 .login-form-panel .auth-sub { margin: 0; color: #71809a; font-size: 13px; line-height: 1.6; }
+.login-role-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0 0 22px; }
+.login-role-option { display: flex; align-items: center; gap: 9px; min-height: 58px; padding: 9px 11px; border: 1px solid #dfe5ef; border-radius: 10px; color: #60708c; text-decoration: none; font-size: 11px; font-weight: 700; transition: .15s ease; }
+.login-role-option i { color: #7d91b5; font-size: 15px; }
+.login-role-option span { display: grid; gap: 3px; }
+.login-role-option small { color: #8a97ad; font-size: 9px; font-weight: 500; line-height: 1.25; }
+.login-role-option:hover, .login-role-option.is-active { border-color: #6b91f8; background: #f2f6ff; color: #244fae; }
+.login-role-option.is-active i { color: var(--blue); }
 .login-form-panel .auth-card label { margin-top: 10px; color: #243553; font-size: 12px; }
 .login-form-panel .auth-card input { width: 100%; min-height: 47px; border-color: #dfe5ef; border-radius: 10px; background: #fbfcfe; font-size: 13px; transition: border-color .15s ease, box-shadow .15s ease, background .15s ease; }
 .login-form-panel .auth-card input:focus { border-color: #6b91f8; background: #fff; box-shadow: 0 0 0 3px rgba(59,110,246,.1); }

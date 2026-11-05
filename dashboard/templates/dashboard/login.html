@@ -30,7 +30,16 @@
         <span class="login-form-icon"><i class="fa-solid fa-arrow-right-to-bracket"></i></span>
         <p class="login-form-kicker">YOUR PORTAL IS READY</p>
         <h2>Welcome back</h2>
-        <p class="auth-sub">Sign in to your college, student, trainer, or company account.</p>
+        <p class="auth-sub">Choose your account type to continue.</p>
+      </div>
+
+      <div class="login-role-switch" role="tablist" aria-label="Choose login type">
+        <a class="login-role-option {% if login_role == 'student' %}is-active{% endif %}" href="{% url 'login' %}?role=student" role="tab" aria-selected="{% if login_role == 'student' %}true{% else %}false{% endif %}">
+          <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i><span>Student Login<small>Access your learning portal</small></span>
+        </a>
+        <a class="login-role-option {% if login_role == 'trainer' %}is-active{% endif %}" href="{% url 'login' %}?role=trainer" role="tab" aria-selected="{% if login_role == 'trainer' %}true{% else %}false{% endif %}">
+          <i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i><span>Trainer Login<small>Manage training and students</small></span>
+        </a>
       </div>
 
       {% if messages %}
@@ -41,6 +50,7 @@
 
       <form method="post">
         {% csrf_token %}
+        <input type="hidden" name="login_role" value="{{ login_role }}">
         <label for="username">Username</label>
         <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
 
@@ -50,11 +60,13 @@
           <button type="button" class="password-visibility-toggle" id="togglePassword" aria-label="Show password" title="Show password" aria-pressed="false"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>
         </div>
 
-        <label for="semester">Semester <span class="muted">(students only)</span></label>
-        <select id="semester" name="semester">
-          <option value="">Select your semester</option>
-          {% for semester in semester_options %}<option value="{{ semester }}" {% if selected_semester == semester %}selected{% endif %}>{{ semester }}</option>{% endfor %}
-        </select>
+        {% if login_role == 'student' %}
+          <label for="semester">Student Semester</label>
+          <select id="semester" name="semester" required>
+            <option value="">Select your semester</option>
+            {% for semester in semester_options %}<option value="{{ semester }}" {% if selected_semester == semester %}selected{% endif %}>{{ semester }}</option>{% endfor %}
+          </select>
+        {% endif %}
 
         <button type="submit" class="btn-primary login-submit">Sign in <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
       </form>
