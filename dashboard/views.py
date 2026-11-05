@@ -68,7 +68,7 @@ def login_view(request):
         return _redirect_for_role(request.user)
 
     login_role = request.POST.get("login_role", request.GET.get("role", "college")).strip().lower()
-    if login_role not in {"college", "trainer", "student"}:
+    if login_role not in {"admin", "college", "trainer", "student"}:
         login_role = "college"
 
     if request.method == "POST":
@@ -77,12 +77,14 @@ def login_view(request):
         selected_semester = request.POST.get("semester", "").strip()
         user = authenticate(request, username=username, password=password)
         if user is not None:
+            is_admin = user.is_staff or user.is_superuser or hasattr(user, "admin_profile")
             profile_attr = {
                 "college": "college_profile",
                 "trainer": "trainer_profile",
                 "student": "profile",
-            }[login_role]
-            if not hasattr(user, profile_attr):
+            }.get(login_role)
+            has_expected_account = is_admin if login_role == "admin" else hasattr(user, profile_attr)
+            if not has_expected_account:
                 messages.error(request, f"This account is not a {login_role} account. Please choose the correct account type.")
                 return render(request, "dashboard/login.html", {"semester_options": _semester_options(), "selected_semester": selected_semester, "login_role": login_role})
             if login_role == "student":

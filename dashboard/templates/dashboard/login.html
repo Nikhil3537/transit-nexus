@@ -34,6 +34,9 @@
       </div>
 
       <div class="login-role-switch" role="tablist" aria-label="Choose account type">
+        <a class="login-role-option {% if login_role == 'admin' %}is-active{% endif %}" href="{% url 'login' %}?role=admin" role="tab" aria-selected="{% if login_role == 'admin' %}true{% else %}false{% endif %}">
+          <i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>Admin Login<small>Manage the Transit Nexus platform</small></span>
+        </a>
         <a class="login-role-option {% if login_role == 'college' %}is-active{% endif %}" href="{% url 'login' %}?role=college" role="tab" aria-selected="{% if login_role == 'college' %}true{% else %}false{% endif %}">
           <i class="fa-solid fa-building-columns" aria-hidden="true"></i><span>College Login<small>Manage your college workspace</small></span>
         </a>
