@@ -11,12 +11,12 @@
       <div class="login-welcome-copy">
         <span class="login-eyebrow"><span></span> TRANSIT NEXUS PORTAL</span>
         <h1>Move forward<br>with confidence.</h1>
-        <p>One place for learning, training, and career opportunities.</p>
+        <p>Your college workspace for students, faculty, departments, and placements.</p>
       </div>
       <div class="login-benefits">
-        <div><span class="login-benefit-icon"><i class="fa-solid fa-graduation-cap"></i></span><span><b>Learn</b><small>Track progress and build skills</small></span></div>
-        <div><span class="login-benefit-icon"><i class="fa-solid fa-people-group"></i></span><span><b>Collaborate</b><small>Connect with your college and trainers</small></span></div>
-        <div><span class="login-benefit-icon"><i class="fa-solid fa-briefcase"></i></span><span><b>Get career ready</b><small>Prepare for your next opportunity</small></span></div>
+        <div><span class="login-benefit-icon"><i class="fa-solid fa-building-columns"></i></span><span><b>Manage your campus</b><small>Keep departments and students aligned</small></span></div>
+        <div><span class="login-benefit-icon"><i class="fa-solid fa-chart-line"></i></span><span><b>Track performance</b><small>Monitor learning and attendance insights</small></span></div>
+        <div><span class="login-benefit-icon"><i class="fa-solid fa-briefcase"></i></span><span><b>Grow placements</b><small>Prepare students for their next opportunity</small></span></div>
       </div>
       <span class="login-orbit login-orbit-one" aria-hidden="true"></span>
       <span class="login-orbit login-orbit-two" aria-hidden="true"></span>
@@ -30,16 +30,7 @@
         <span class="login-form-icon"><i class="fa-solid fa-arrow-right-to-bracket"></i></span>
         <p class="login-form-kicker">YOUR PORTAL IS READY</p>
         <h2>Welcome back</h2>
-        <p class="auth-sub">Choose your account type to continue.</p>
-      </div>
-
-      <div class="login-role-switch" role="tablist" aria-label="Choose login type">
-        <a class="login-role-option {% if login_role == 'student' %}is-active{% endif %}" href="{% url 'login' %}?role=student" role="tab" aria-selected="{% if login_role == 'student' %}true{% else %}false{% endif %}">
-          <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i><span>Student Login<small>Access your learning portal</small></span>
-        </a>
-        <a class="login-role-option {% if login_role == 'trainer' %}is-active{% endif %}" href="{% url 'login' %}?role=trainer" role="tab" aria-selected="{% if login_role == 'trainer' %}true{% else %}false{% endif %}">
-          <i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i><span>Trainer Login<small>Manage training and students</small></span>
-        </a>
+        <p class="auth-sub">Sign in to manage your college workspace.</p>
       </div>
 
       {% if messages %}
@@ -50,9 +41,8 @@
 
       <form method="post">
         {% csrf_token %}
-        <input type="hidden" name="login_role" value="{{ login_role }}">
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
+        <label for="username">College username</label>
+        <input type="text" id="username" name="username" placeholder="Enter your college username" autocomplete="username" required autofocus>
 
         <label for="password">Password</label>
         <div class="password-input-wrap">
@@ -60,19 +50,11 @@
           <button type="button" class="password-visibility-toggle" id="togglePassword" aria-label="Show password" title="Show password" aria-pressed="false"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>
         </div>
 
-        {% if login_role == 'student' %}
-          <label for="semester">Student Semester</label>
-          <select id="semester" name="semester" required>
-            <option value="">Select your semester</option>
-            {% for semester in semester_options %}<option value="{{ semester }}" {% if selected_semester == semester %}selected{% endif %}>{{ semester }}</option>{% endfor %}
-          </select>
-        {% endif %}
-
         <button type="submit" class="btn-primary login-submit">Sign in <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
       </form>
 
       <p class="auth-hint"><a href="{% url 'password_reset' %}">Forgot your password?</a></p>
-      <p class="auth-hint">Student and trainer access is issued by your college or platform administrator.</p>
+      <p class="auth-hint">College accounts are issued by the Transit Nexus platform administrator.</p>
     </div>
     </div>
     </section>
