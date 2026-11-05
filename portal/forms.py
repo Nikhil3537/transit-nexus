@@ -138,6 +138,7 @@ class CollegeStudentAccountForm(forms.Form):
     email = forms.EmailField(label="Student email")
     phone = forms.CharField(max_length=30, required=False, label="Phone number")
     department = forms.CharField(max_length=120)
+    semester_label = forms.CharField(max_length=100, required=False, label="Semester")
 
     def clean_username(self):
         username = self.cleaned_data["username"].strip()

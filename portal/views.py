@@ -2021,7 +2021,7 @@ def _student_credentials_pdf(*, student, college_name, portal_url, temporary_pas
 @college_account_required
 def college_students(request):
     profile = _college_workspace(request)
-    account_form = CollegeStudentAccountForm()
+    account_form = CollegeStudentAccountForm(initial={"semester_label": profile.semester_label})
     if request.method == "POST" and request.POST.get("action") == "create_account":
         account_form = CollegeStudentAccountForm(request.POST)
         if account_form.is_valid():
@@ -2038,6 +2038,7 @@ def college_students(request):
                 )
                 StudentProfile.objects.create(
                     user=user, college=profile, department=data["department"], phone=data["phone"],
+                    semester_label=data["semester_label"] or profile.semester_label,
                     must_change_password=True,
                 )
                 AdminStudentRecord.objects.create(

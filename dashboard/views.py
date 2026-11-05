@@ -70,8 +70,17 @@ def login_view(request):
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
+        selected_semester = request.POST.get("semester", "").strip()
         user = authenticate(request, username=username, password=password)
         if user is not None:
+            if hasattr(user, "profile"):
+                profile = user.profile
+                expected_semester = (profile.semester_label or profile.college.semester_label if profile.college else profile.semester_label).strip()
+                if expected_semester == "Current Semester" and profile.college:
+                    expected_semester = profile.college.semester_label
+                if not selected_semester or selected_semester.casefold() != expected_semester.casefold():
+                    messages.error(request, "The selected semester does not match your college student account.")
+                    return render(request, "dashboard/login.html", {"semester_options": _semester_options(), "selected_semester": selected_semester})
             login(request, user)
             if hasattr(user, "profile") and user.profile.must_change_password:
                 return redirect("password_change")
@@ -81,7 +90,18 @@ def login_view(request):
         else:
             messages.error(request, "Invalid username or password.")
 
-    return render(request, "dashboard/login.html")
+    return render(request, "dashboard/login.html", {"semester_options": _semester_options(), "selected_semester": request.POST.get("semester", "")})
+
+
+def _semester_options():
+    options = {f"Semester {number}" for number in range(1, 9)}
+    options.update({"Odd Semester", "Even Semester"})
+    options.update(
+        value.strip()
+        for value in CollegeProfile.objects.values_list("semester_label", flat=True)
+        if value and value.strip()
+    )
+    return sorted(options, key=str.casefold)
 
 
 def student_register_view(request):
