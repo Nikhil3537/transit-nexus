@@ -35,7 +35,7 @@ from .forms import (
     CollegeInvoiceForm, CollegeQuickReportForm, CollegeStudentAccountForm, CollegeStudentForm,
     DepartmentAttendanceForm, FacultyForm, OnlineTestForm, PlacementRecordForm, SyllabusCoverageForm,
 )
-from dashboard.models import DailyAttendance, StudentProfile
+from dashboard.models import Assessment, DailyAttendance, StudentProfile
 
 
 ADMIN_NAV = [
@@ -1061,12 +1061,97 @@ def admin_programs(request):
 @platform_admin_required
 def admin_assessments(request):
     profile, _ = AdminProfile.objects.get_or_create(user=request.user)
+    if request.method == "POST" and request.FILES.get("file"):
+        return _import_testmoz_results(request, request.FILES["file"])
     items = AdminScheduleItem.objects.filter(kind="assessment")
     online_tests = OnlineTest.objects.filter(external_url__gt="").select_related("college", "trainer__user")
     ctx = _page_ctx(profile, ADMIN_NAV, "Assessments", "Assessments",
                     f"{items.count() + online_tests.count()} assessments scheduled platform-wide", "Super Admin",
                     items=items, online_tests=online_tests)
     return render(request, "portal/admin_assessments.html", ctx)
+
+
+def _import_testmoz_results(request, uploaded):
+    """Import Testmoz scores into student dashboards and trainer summaries."""
+    required = {"student_id", "college_name", "department", "semester", "test_name", "subject", "score", "date"}
+    try:
+        raw_headers, spreadsheet_rows = _spreadsheet_rows(uploaded)
+        headers = [str(header or "").strip().lower() for header in raw_headers]
+        missing = sorted(required - set(headers))
+        if missing:
+            raise ValueError("Missing required columns: " + ", ".join(missing))
+
+        prepared = []
+        errors = []
+        seen = set()
+        for row_number, raw_row in enumerate(spreadsheet_rows, start=2):
+            row = {(key or "").strip().lower(): (value or "").strip() for key, value in raw_row.items() if key is not None}
+            if not any(row.values()):
+                continue
+            student = StudentProfile.objects.select_related("user", "college").filter(
+                user__username__iexact=row.get("student_id", ""),
+                college__college_name__iexact=row.get("college_name", ""),
+            ).first()
+            if student is None:
+                errors.append(f"Row {row_number}: student ID and college do not match an account.")
+                continue
+            if _canonical_department_name(student.department) != _canonical_department_name(row["department"]):
+                errors.append(f"Row {row_number}: department does not match {student.user.username}.")
+            expected_semester = (student.semester_label or student.college.semester_label or "").strip()
+            if expected_semester == "Current Semester":
+                expected_semester = student.college.semester_label
+            if row["semester"].casefold() != expected_semester.casefold():
+                errors.append(f"Row {row_number}: semester does not match {student.user.username}.")
+            test = OnlineTest.objects.filter(
+                college=student.college, title__iexact=row["test_name"], external_url__gt="",
+            ).select_related("trainer").first()
+            if test is None:
+                errors.append(f"Row {row_number}: Testmoz test '{row['test_name']}' was not scheduled for this college.")
+                continue
+            try:
+                score = float(row["score"])
+                if not 0 <= score <= 100:
+                    raise ValueError
+                result_date = datetime.strptime(row["date"][:10], "%Y-%m-%d").date()
+            except ValueError:
+                errors.append(f"Row {row_number}: score must be 0-100 and date must use YYYY-MM-DD.")
+                continue
+            status = row.get("status", "completed").casefold() or "completed"
+            if status not in {"completed", "pending"}:
+                errors.append(f"Row {row_number}: status must be completed or pending.")
+                continue
+            key = (student.pk, test.pk, row["subject"].casefold(), result_date)
+            if key in seen:
+                errors.append(f"Row {row_number}: duplicate student/test result.")
+            seen.add(key)
+            prepared.append((student, test, row, score, result_date, status))
+
+        if errors:
+            for error in errors[:30]:
+                messages.error(request, error)
+            return redirect("admin_assessments")
+        if not prepared:
+            messages.error(request, "The file contains no valid Testmoz result rows.")
+            return redirect("admin_assessments")
+
+        with transaction.atomic():
+            trainer_scores = {}
+            for student, test, row, score, result_date, status in prepared:
+                Assessment.objects.update_or_create(
+                    student=student, name=row["test_name"], subject=row["subject"], date=result_date,
+                    defaults={"score": score, "status": status},
+                )
+                if test.trainer_id:
+                    trainer_scores.setdefault((test.trainer_id, test.title, result_date), []).append(score)
+            for (trainer_id, test_name, result_date), scores in trainer_scores.items():
+                TrainerAssessment.objects.update_or_create(
+                    trainer_id=trainer_id, name=test_name, date=result_date,
+                    defaults={"avg_score": round(sum(scores) / len(scores), 1)},
+                )
+        messages.success(request, f"Imported {len(prepared)} Testmoz result(s). Student and trainer dashboards are updated.")
+    except (UnicodeDecodeError, csv.Error, ValueError, KeyError, ImportError) as error:
+        messages.error(request, str(error) or "Could not read the Testmoz result file.")
+    return redirect("admin_assessments")
 
 
 @platform_admin_required

@@ -2,6 +2,15 @@
 {% block title %}Assessments · Transit Nexus{% endblock %}
 {% block content %}
 <section class="panel">
+  <div class="panel-head"><h3>Import Testmoz Results</h3><span class="muted">Scores are reflected in the matching student and trainer dashboards.</span></div>
+  <p class="muted">Upload CSV or Excel with: student_id, college_name, department, semester, test_name, subject, score, date, status.</p>
+  <form method="post" enctype="multipart/form-data" class="form-grid">
+    {% csrf_token %}
+    <label>Testmoz results file<input type="file" name="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></label>
+    <div><button class="btn btn-primary" type="submit"><i class="fa-solid fa-upload"></i> Import Results</button></div>
+  </form>
+</section>
+<section class="panel">
   <div class="panel-head"><h3>Scheduled Assessments</h3></div>
   <table class="data-table">
     <thead><tr><th>Assessment</th><th>College</th><th>Date</th></tr></thead>
