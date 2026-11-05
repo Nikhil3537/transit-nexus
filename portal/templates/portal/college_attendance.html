@@ -66,12 +66,20 @@
     <canvas id="attTrend" height="120"></canvas>
   </div>
   <div class="panel">
-    <div class="panel-head"><h3>By Department</h3></div>
+    <div class="panel-head"><div><h3>Branch-wise Attendance</h3><span class="muted">Attendance summary by academic branch</span></div></div>
     <table class="data-table">
-      <thead><tr><th>Department</th><th>Attendance %</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Branch</th><th>Present</th><th>Absent</th><th>Marked</th><th>Attendance %</th><th>Actions</th></tr></thead>
       <tbody>
       {% for d in departments %}
-        <tr><td>{{ d.name }}</td><td><span class="tag tag-good">{{ d.attendance_pct }}%</span></td><td>{% if d.pk %}<a class="btn btn-secondary" href="?edit={{ d.pk }}">Edit</a><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="record_id" value="{{ d.pk }}"><input type="hidden" name="action" value="delete"><button class="btn btn-danger" type="submit">Delete</button></form>{% else %}<span class="muted">Summary record</span>{% endif %}</td></tr>
+        <tr>
+          <td><strong>{{ d.name }}</strong><small class="muted" style="display:block;">{{ d.code }}</small></td>
+          <td>{{ d.attendance_present }}</td>
+          <td>{{ d.attendance_absent }}</td>
+          <td>{{ d.attendance_classes }}</td>
+          <td><span class="tag tag-good">{{ d.attendance_pct }}%</span></td>
+          <td>{% if d.pk %}<a class="btn btn-secondary" href="?edit={{ d.pk }}">Edit</a><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="record_id" value="{{ d.pk }}"><input type="hidden" name="action" value="delete"><button class="btn btn-danger" type="submit">Delete</button></form>{% else %}<span class="muted">Summary record</span>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="6">No branch attendance data available yet.</td></tr>
       {% endfor %}
       </tbody>
     </table>

@@ -557,7 +557,7 @@ def _department_summary_rows(profile):
             values["training_hours"] = values["live_training_hours"]
         if values["live_assessments"]:
             values["assessments_taken"] = values["live_assessments"]
-        rows.append(Department(
+        row = Department(
             pk=values.get("pk"),
             name=values["name"],
             code=values["code"],
@@ -566,7 +566,12 @@ def _department_summary_rows(profile):
             attendance_pct=values["attendance_pct"],
             assessments_taken=values["assessments_taken"],
             training_hours=values["training_hours"],
-        ))
+        )
+        # Keep the underlying counts available for the branch-wise attendance view.
+        row.attendance_present = round(values["attendance_present"])
+        row.attendance_classes = round(values["attendance_classes"])
+        row.attendance_absent = max(row.attendance_classes - row.attendance_present, 0)
+        rows.append(row)
     return sorted(rows, key=lambda department: _department_sort_key(department.name or department.code))
 
 
