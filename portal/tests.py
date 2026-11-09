@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from datetime import date, timedelta
 
-from dashboard.models import Certificate, StudentProfile
+from dashboard.models import Assessment, Certificate, StudentProfile
 from .models import (
     AdminInvoice, AdminProfile, AdminStudentRecord, CollegeAssessment, CollegeProfile, CollegeProgram,
     CollegeQuickReport, CollegeStudent, CompanyProfile, Department, Faculty, PartnerCollege,
@@ -28,6 +28,42 @@ COLLEGE_UPLOAD_PAGE_TEST_NAMES = {
     "faculty": "college_faculty",
     "reports": "college_reports",
 }
+
+
+class TestmozStudentResultTests(TestCase):
+    def test_imported_testmoz_result_appears_on_the_matching_student_dashboard(self):
+        admin = User.objects.create_user(username="testmoz-admin", password="test-pass", is_staff=True)
+        college = CollegeProfile.objects.create(
+            user=User.objects.create_user(username="testmoz-college", password="test-pass"),
+            college_name="Testmoz College", semester_label="Odd Semester",
+        )
+        student_user = User.objects.create_user(
+            username="nikhil", password="test-pass", first_name="Nikhil", last_name="Student",
+        )
+        StudentProfile.objects.create(
+            user=student_user, college=college, department="CSE", semester_label="Odd Semester",
+        )
+        OnlineTest.objects.create(
+            college=college, title="Python Testmoz Test", external_url="https://testmoz.com/123",
+            opens_at=timezone.now() - timedelta(hours=2), closes_at=timezone.now() + timedelta(hours=1),
+        )
+        self.client.force_login(admin)
+        csv_file = SimpleUploadedFile(
+            "testmoz-results.csv",
+            b"student_id,college_name,department,semester,test_name,subject,score,date,status\n"
+            b"nikhil,Testmoz College,CSE,Odd Semester,Python Testmoz Test,Python,87.5,2026-11-09,completed\n",
+            content_type="text/csv",
+        )
+        response = self.client.post(reverse("admin_assessments"), {"file": csv_file})
+        self.assertRedirects(response, reverse("admin_assessments"))
+        self.assertTrue(Assessment.objects.filter(student__user__username="nikhil", score=87.5).exists())
+        self.client.force_login(student_user)
+        dashboard = self.client.get(reverse("dashboard"))
+        reports = self.client.get(reverse("results_reports"))
+        self.assertContains(dashboard, "Python Testmoz Test")
+        self.assertContains(dashboard, "87.5")
+        self.assertContains(reports, "Python Testmoz Test")
+        self.assertContains(reports, "87.5")
 
 
 class BulkImportTests(TestCase):

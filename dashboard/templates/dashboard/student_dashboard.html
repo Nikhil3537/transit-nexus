@@ -177,13 +177,14 @@
         </div>
         <table class="data-table">
           <thead>
-            <tr><th>Assessment</th><th>Score</th><th>Date</th><th>Status</th></tr>
+            <tr><th>Assessment</th><th>Subject</th><th>Score</th><th>Date</th><th>Status</th></tr>
           </thead>
           <tbody>
           {% for a in recent_assessments %}
             <tr>
               <td>{{ a.name }}</td>
-              <td>{% if a.score %}{{ a.score }}%{% else %}&mdash;{% endif %}</td>
+              <td>{{ a.subject }}</td>
+              <td>{% if a.score is not None %}{{ a.score }}%{% else %}&mdash;{% endif %}</td>
               <td>{{ a.date|date:"d M Y" }}</td>
               <td>
                 {% if a.status == "completed" %}

@@ -13,7 +13,7 @@
       <tr>
         <td>{{ a.name }}</td>
         <td>{{ a.subject }}</td>
-        <td>{% if a.score %}{{ a.score }}%{% else %}&mdash;{% endif %}</td>
+        <td>{% if a.score is not None %}{{ a.score }}%{% else %}&mdash;{% endif %}</td>
         <td>{{ a.date|date:"d M Y" }}</td>
         <td>
           {% if a.status == "completed" %}

@@ -623,6 +623,7 @@ def results_reports_view(request):
         "page_title": "Results & Reports",
         "page_subtitle": "Your academic performance at a glance",
         "enrollments": enrollments,
+        "assessments": assessments,
         "avg_score": avg_score,
         "trend_json": json.dumps(trend),
     }
