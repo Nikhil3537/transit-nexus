@@ -374,6 +374,22 @@ def _student_identity_key(name, department=""):
     return normalized_name, normalized_department
 
 
+def _dedupe_student_rows(rows):
+    """Keep the first row for each student identity across legacy data sources."""
+    unique_rows = []
+    seen = set()
+    for row in rows:
+        key = (
+            (row.get("college_name") or "").strip().casefold(),
+            _student_identity_key(row["name"], row["department"]),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_rows.append(row)
+    return unique_rows
+
+
 def _college_student_accounts(profile, department_scope=""):
     """Return one live account per student identity for college-facing lists."""
     accounts = StudentProfile.objects.select_related("user").filter(college=profile)
@@ -863,6 +879,7 @@ def admin_college_detail(request, college_id):
                 "attendance_pct": None,
                 "is_account": False,
             })
+    students = _dedupe_student_rows(students)
     students.sort(key=lambda row: (
         _department_sort_key(row["department"]),
         _semester_sort_key(row["semester"]),
@@ -1034,6 +1051,7 @@ def admin_students(request):
                 "status": "Active",
                 "has_account": False,
             })
+    student_rows = _dedupe_student_rows(student_rows)
     student_rows.sort(key=lambda row: (
         row["college_name"].casefold(), _department_sort_key(row["department"]),
         _semester_sort_key(row["semester"]), row["name"].casefold(),

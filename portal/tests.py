@@ -753,6 +753,25 @@ class PlatformCollegeWorkspaceTests(TestCase):
         self.assertContains(response, "Account")
         self.assertEqual(response.context["total_students"], 1)
 
+    def test_admin_students_deduplicates_account_and_legacy_student_records(self):
+        student_user = User.objects.create_user(
+            username="duplicate-student", first_name="Duplicate", last_name="Student",
+        )
+        StudentProfile.objects.create(user=student_user, college=self.college, department="CSE")
+        AdminStudentRecord.objects.create(
+            name="Duplicate Student", college_name=self.college.college_name,
+            department="Computer Science and Engineering",
+        )
+        CollegeStudent.objects.create(
+            college=self.college, name="Duplicate Student", department="CSE",
+        )
+
+        response = self.client.get(reverse("admin_students"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["students"]), 1)
+        self.assertEqual(response.context["students"][0]["name"], "Duplicate Student")
+
 
 class CollegeCSVUploadTests(TestCase):
     def setUp(self):
