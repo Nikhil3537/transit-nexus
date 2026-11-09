@@ -105,6 +105,13 @@ If `POSTGRES_DB` is not set, the project uses the local SQLite database. Create
 the PostgreSQL database first with `CREATE DATABASE transit_nexus;`, then run
 the migration and seed commands above.
 
+For simultaneous student access in production, set `DEBUG=false` and provide
+`DATABASE_URL` (or the `POSTGRES_*` variables). Do not use the local
+`db.sqlite3` file with the Gunicorn multi-worker configuration: SQLite is a
+single-file database and can lock when many students log in or submit data at
+the same time. The development SQLite fallback uses WAL and a busy timeout,
+but it is not a production database.
+
 ## Controlled user access
 
 Create accounts as pending so they cannot log in until an administrator

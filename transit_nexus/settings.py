@@ -5,6 +5,7 @@ import os
 
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
+from django.db.backends.signals import connection_created
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -116,9 +117,24 @@ else:
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
-            "OPTIONS": {"timeout": 30},
+            # WAL allows concurrent readers while a write is in progress.
+            # The timeout prevents transient lock errors during local testing.
+            "OPTIONS": {"timeout": 60},
         }
     }
+
+
+def _configure_sqlite_connection(sender, connection, **kwargs):
+    """Make the development SQLite fallback tolerate concurrent requests."""
+
+    if connection.vendor != "sqlite":
+        return
+    with connection.cursor() as cursor:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=60000")
+
+
+connection_created.connect(_configure_sqlite_connection)
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
