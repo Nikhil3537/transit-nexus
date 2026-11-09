@@ -24,7 +24,7 @@ from .models import (
     Skill,
     DailyAttendance,
 )
-from portal.models import AdminStudentRecord, CollegeProfile, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
+from portal.models import AdminStudentRecord, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
 from portal.forms import ACADEMIC_PROGRAMME_CHOICES
 
 
@@ -74,7 +74,6 @@ def login_view(request):
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
-        selected_semester = request.POST.get("semester", "").strip()
         user = authenticate(request, username=username, password=password)
         if user is not None:
             is_admin = user.is_staff or user.is_superuser or hasattr(user, "admin_profile")
@@ -86,15 +85,6 @@ def login_view(request):
             has_expected_account = is_admin if login_role == "admin" else hasattr(user, profile_attr)
             if not has_expected_account:
                 messages.error(request, f"This account is not a {login_role} account. Please choose the correct account type.")
-                return render(request, "dashboard/login.html", {"semester_options": _semester_options(), "selected_semester": selected_semester, "login_role": login_role})
-            if login_role == "student":
-                profile = user.profile
-                expected_semester = (profile.semester_label or (profile.college.semester_label if profile.college else "")).strip()
-                if expected_semester == "Current Semester" and profile.college:
-                    expected_semester = profile.college.semester_label
-                if not selected_semester or selected_semester.casefold() != expected_semester.casefold():
-                    messages.error(request, "The selected semester does not match your student account.")
-                    return render(request, "dashboard/login.html", {"semester_options": _semester_options(), "selected_semester": selected_semester, "login_role": login_role})
             login(request, user)
             if login_role == "student" and user.profile.must_change_password:
                 return redirect("password_change")
@@ -104,22 +94,7 @@ def login_view(request):
         else:
             messages.error(request, "Invalid username or password.")
 
-    return render(request, "dashboard/login.html", {
-        "semester_options": _semester_options(),
-        "selected_semester": request.POST.get("semester", ""),
-        "login_role": login_role,
-    })
-
-
-def _semester_options():
-    options = {f"Semester {number}" for number in range(1, 9)}
-    options.update({"Odd Semester", "Even Semester"})
-    options.update(
-        value.strip()
-        for value in CollegeProfile.objects.values_list("semester_label", flat=True)
-        if value and value.strip()
-    )
-    return sorted(options, key=str.casefold)
+    return render(request, "dashboard/login.html", {"login_role": login_role})
 
 
 def student_register_view(request):
@@ -157,6 +132,11 @@ def _base_context(profile):
     """Common context every page needs (unread message badge, etc.)"""
     return {
         "profile": profile,
+        "display_semester_label": (
+            profile.semester_label
+            if profile.semester_label and profile.semester_label.casefold() != "current semester"
+            else (profile.college.semester_label if profile.college else profile.semester_label)
+        ),
         "unread_message_count": profile.messages.filter(is_read=False).count(),
     }
 

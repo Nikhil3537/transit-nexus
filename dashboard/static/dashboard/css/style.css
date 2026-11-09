@@ -273,6 +273,7 @@ a { text-decoration: none; color: inherit; }
 .college-section-nav a:hover { background: var(--blue-light); }
 
 .topbar-actions { display: flex; align-items: center; gap: 14px; }
+.semester-filter select { min-width: 150px; padding: 9px 30px 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--navy); font-size: 12px; font-weight: 600; }
 .semester-pill {
   display: flex; align-items: center; gap: 10px;
   background: #fff; border: 1px solid var(--border);

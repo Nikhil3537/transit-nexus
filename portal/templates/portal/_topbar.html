@@ -9,6 +9,15 @@
     </div>
   </div>
   <div class="topbar-actions">
+    {% if semester_options %}
+    <form method="get" class="semester-filter">
+      <label class="sr-only" for="dashboardSemester">Semester</label>
+      <select id="dashboardSemester" name="semester" onchange="this.form.submit()" aria-label="Select semester">
+        {% if user_role_label == 'Super Admin' %}<option value="">All semesters</option>{% endif %}
+        {% for semester in semester_options %}<option value="{{ semester }}" {% if selected_semester == semester %}selected{% endif %}>{{ semester }}</option>{% endfor %}
+      </select>
+    </form>
+    {% endif %}
     <div class="icon-btn"><i class="fa-regular fa-bell"></i></div>
     <div class="user-chip">
       <img class="avatar-sm" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=16274d&color=fff" alt="avatar">

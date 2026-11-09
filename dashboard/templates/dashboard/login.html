@@ -66,14 +66,6 @@
           <button type="button" class="password-visibility-toggle" id="togglePassword" aria-label="Show password" title="Show password" aria-pressed="false"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>
         </div>
 
-        {% if login_role == 'student' %}
-          <label for="semester">Student semester</label>
-          <select id="semester" name="semester" required>
-            <option value="">Select your semester</option>
-            {% for semester in semester_options %}<option value="{{ semester }}" {% if selected_semester == semester %}selected{% endif %}>{{ semester }}</option>{% endfor %}
-          </select>
-        {% endif %}
-
         <button type="submit" class="btn-primary login-submit">Sign in <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
       </form>
 

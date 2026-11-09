@@ -224,6 +224,7 @@ def home_view(request):
 @platform_admin_required
 def admin_dashboard(request):
     profile, _ = AdminProfile.objects.get_or_create(user=request.user)
+    selected_semester = request.GET.get("semester", "").strip()
 
     partner_by_name = {college.name.casefold(): college for college in PartnerCollege.objects.all()}
     colleges = []
@@ -234,7 +235,7 @@ def admin_dashboard(request):
         colleges.append({
             "profile": college,
             "name": college.college_name,
-            "students_count": _college_unique_student_count(college),
+            "students_count": _college_unique_student_count(college, semester_scope=selected_semester),
             "active_programs": college.programs.filter(status="active").count(),
             "pending_payment": partner.pending_payment if partner else 0,
             "status": partner.status if partner else "active",
@@ -299,6 +300,8 @@ def admin_dashboard(request):
         "trainer_roster": trainer_rows,
         "top_programs": top_programs,
         "syllabus_updates": syllabus_updates,
+        "semester_options": _semester_options(),
+        "selected_semester": selected_semester,
     }
     return render(request, "portal/admin_dashboard.html", context)
 
@@ -357,6 +360,22 @@ def _semester_sort_key(label):
     return (2, normalized)
 
 
+def _semester_options():
+    options = {f"Semester {number}" for number in range(1, 9)}
+    options.update({"Odd Semester", "Even Semester"})
+    options.update(value.strip() for value in CollegeProfile.objects.values_list("semester_label", flat=True) if value and value.strip() and value.strip() != "Current Semester")
+    return sorted(options, key=str.casefold)
+
+
+def _semester_matches(value, selected, college_semester=""):
+    if not selected:
+        return True
+    effective = (value or "").strip()
+    if not effective or effective.casefold() == "current semester":
+        effective = (college_semester or "").strip()
+    return effective.casefold() == selected.casefold()
+
+
 def _department_code_for_name(name):
     canonical = _canonical_department_name(name)
     aliases = DEPARTMENT_ALIASES.get(canonical, set())
@@ -410,7 +429,7 @@ def _college_student_accounts(profile, department_scope=""):
     return unique_accounts
 
 
-def _college_unique_student_count(profile, department_scope=""):
+def _college_unique_student_count(profile, department_scope="", semester_scope=""):
     """Count one student per college/department identity across all data sources."""
     keys = set()
     accounts = profile.student_accounts.select_related("user")
@@ -422,13 +441,19 @@ def _college_unique_student_count(profile, department_scope=""):
         records = records.filter(department__iexact=department_scope)
 
     for student in accounts:
+        if not _semester_matches(student.semester_label, semester_scope, profile.semester_label):
+            continue
         keys.add(_student_identity_key(
             student.user.get_full_name() or student.user.username,
             student.department,
         ))
     for student in manual_students:
+        if semester_scope and not _semester_matches("", semester_scope, profile.semester_label):
+            continue
         keys.add(_student_identity_key(student.name, student.department))
     for record in records:
+        if semester_scope and not _semester_matches("", semester_scope, profile.semester_label):
+            continue
         keys.add(_student_identity_key(record.name, record.department))
     return len(keys)
 
@@ -461,11 +486,12 @@ def _unmatched_admin_student_records(profile):
     return unmatched
 
 
-def _department_summary_rows(profile):
+def _department_summary_rows(profile, semester_scope=""):
     summary = {}
     admin_records_by_name = _admin_student_records_by_name(profile)
 
-    for department in profile.departments.all():
+    include_college_defaults = not semester_scope or _semester_matches(profile.semester_label, semester_scope, profile.semester_label)
+    for department in (profile.departments.all() if include_college_defaults else []):
         department_name = _canonical_department_name(department.name or department.code)
         if not department_name:
             continue
@@ -505,6 +531,8 @@ def _department_summary_rows(profile):
 
     live_student_keys = set()
     for student in profile.student_accounts.all():
+        if not _semester_matches(student.semester_label, semester_scope, profile.semester_label):
+            continue
         student_name = (student.user.get_full_name() or student.user.username).strip().casefold()
         matching_records = admin_records_by_name.get(student_name, [])
         matching_record = matching_records.pop(0) if matching_records else None
@@ -533,6 +561,8 @@ def _department_summary_rows(profile):
     unmatched_admin_keys = set()
     for records in admin_records_by_name.values():
         for record in records:
+            if semester_scope and not _semester_matches("", semester_scope, profile.semester_label):
+                continue
             department_name = _canonical_department_name(record.department) or "Unassigned"
             student_key = _student_identity_key(record.name, department_name)
             if student_key in live_student_keys or student_key in unmatched_admin_keys:
@@ -544,6 +574,8 @@ def _department_summary_rows(profile):
 
     manual_student_keys = set()
     for student in profile.students.all().order_by("name", "pk"):
+        if semester_scope and not _semester_matches("", semester_scope, profile.semester_label):
+            continue
         department_name = _canonical_department_name(student.department)
         if not department_name:
             continue
@@ -558,6 +590,8 @@ def _department_summary_rows(profile):
         entry["attendance_classes"] += 100
 
     for assessment in profile.assessments.all():
+        if semester_scope and not _semester_matches("", semester_scope, profile.semester_label):
+            continue
         department_name = _canonical_department_name(assessment.department)
         if not department_name:
             continue
@@ -597,12 +631,13 @@ def _department_summary_rows(profile):
 @college_account_required
 def college_dashboard(request):
     profile = _college_workspace(request)
-    departments = _department_summary_rows(profile)
+    selected_semester = request.GET.get("semester", "").strip() or profile.semester_label
+    departments = _department_summary_rows(profile, selected_semester)
     department_scope = _college_department_scope(request)
     if department_scope:
         departments = [d for d in departments if _canonical_department_name(d.name) == department_scope]
 
-    tracked_students = _college_unique_student_count(profile, department_scope)
+    tracked_students = _college_unique_student_count(profile, department_scope, selected_semester)
     total_students = tracked_students or sum(d.total_students for d in departments)
     if departments:
         avg_performance = round(sum(float(d.avg_performance) * d.total_students for d in departments) / total_students, 1) if total_students else 0
@@ -642,7 +677,7 @@ def college_dashboard(request):
     context = {
         "profile": profile,
         "page_title": f"{profile.college_name} — Dashboard",
-        "page_subtitle": f"Academic Year: {profile.academic_year}",
+        "page_subtitle": f"Academic Year: {profile.academic_year} · {selected_semester}",
         "user_role_label": _college_role_label(request),
         **_nav_context(COLLEGE_NAV, "Dashboard", "TRANSIT NEXUS", "LEARN · ASSESS · GROW"),
         "departments": departments,
@@ -656,6 +691,8 @@ def college_dashboard(request):
         "trend_json": trend_json,
         "top_departments": top_departments,
         "quick_reports": quick_reports,
+        "semester_options": _semester_options(),
+        "selected_semester": selected_semester,
     }
     return render(request, "portal/college_dashboard.html", context)
 
