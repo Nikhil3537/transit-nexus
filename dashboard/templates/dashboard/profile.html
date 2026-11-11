@@ -6,7 +6,7 @@
     {% for m in messages %}<div class="alert-success">{{ m }}</div>{% endfor %}
   {% endif %}
   <div class="profile-header">
-    <img class="profile-avatar-lg" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=4361ee&color=fff&size=128" alt="avatar">
+    {% if show_college_brand_logo %}<img class="profile-avatar-lg college-avatar-logo" src="{% static 'dashboard/img/acharya-logo.png' %}" alt="Acharya Institutes logo">{% else %}<img class="profile-avatar-lg" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=4361ee&color=fff&size=128" alt="avatar">{% endif %}
     <div>
       <h2>{{ profile.user.first_name }} {{ profile.user.last_name }}</h2>
       <p>{{ profile.user.email|default:"No email on file" }}</p>

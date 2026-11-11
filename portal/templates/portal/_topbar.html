@@ -2,7 +2,7 @@
 <header class="topbar">
   {% if show_college_brand_logo %}<img class="topbar-brand college-brand-logo" src="{% static 'dashboard/img/acharya-logo.png' %}" alt="Acharya Institutes">{% else %}<img class="topbar-brand" src="{% static 'dashboard/img/transit-logo.png' %}" alt="Transit Training and Recruitment Partner">{% endif %}
   <div class="topbar-welcome">
-    <img class="avatar-sm" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=16274d&color=fff" alt="avatar">
+    {% if show_college_brand_logo %}<img class="avatar-sm college-avatar-logo" src="{% static 'dashboard/img/acharya-logo.png' %}" alt="Acharya Institutes logo">{% else %}<img class="avatar-sm" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=16274d&color=fff" alt="avatar">{% endif %}
     <div>
       <h2>{{ page_title }}</h2>
       <p>{{ page_subtitle }}</p>
@@ -20,7 +20,7 @@
     {% endif %}
     <div class="icon-btn"><i class="fa-regular fa-bell"></i></div>
     <div class="user-chip">
-      <img class="avatar-sm" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=16274d&color=fff" alt="avatar">
+      {% if show_college_brand_logo %}<img class="avatar-sm college-avatar-logo" src="{% static 'dashboard/img/acharya-logo.png' %}" alt="Acharya Institutes logo">{% else %}<img class="avatar-sm" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=16274d&color=fff" alt="avatar">{% endif %}
       <div>
         <span class="user-name">{{ profile.user.first_name }} {{ profile.user.last_name }}</span>
         <span class="user-role">{{ user_role_label }}</span>
