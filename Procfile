@@ -1,1 +1,1 @@
-web: gunicorn transit_nexus.wsgi:application --config gunicorn.conf.py
+web: gunicorn transit_nexus.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 300
