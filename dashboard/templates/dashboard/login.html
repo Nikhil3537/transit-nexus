@@ -70,7 +70,7 @@
       </form>
 
       <p class="auth-hint"><a href="{% url 'password_reset' %}">Forgot your password?</a></p>
-      <p class="auth-hint">Account access is issued by your college or the Transit Nexus platform administrator.</p>
+      <p class="auth-hint">Account access is issued by your college or the Transit Nexus platform administrator.{% if login_role == 'student' %} <a href="{% url 'student_register' %}">Create a student account</a>{% endif %}</p>
     </div>
     </div>
     </section>

@@ -20,22 +20,22 @@
       <form method="post">
         {% csrf_token %}
         <label for="username">Username</label>
-        <input type="text" id="username" name="username" required>
+        <input type="text" id="username" name="username" value="{{ form_values.username|default:'' }}" required>
 
         <label for="password">Password</label>
         <input type="password" id="password" name="password" required>
 
         <label for="first_name">First name</label>
-        <input type="text" id="first_name" name="first_name">
+        <input type="text" id="first_name" name="first_name" value="{{ form_values.first_name|default:'' }}">
 
         <label for="last_name">Last name</label>
-        <input type="text" id="last_name" name="last_name">
+        <input type="text" id="last_name" name="last_name" value="{{ form_values.last_name|default:'' }}">
 
         <label for="email">Email</label>
-        <input type="email" id="email" name="email">
+        <input type="email" id="email" name="email" value="{{ form_values.email|default:'' }}">
 
         <label for="phone">Phone number</label>
-        <input type="tel" id="phone" name="phone" autocomplete="tel" placeholder="Enter your phone number">
+        <input type="tel" id="phone" name="phone" autocomplete="tel" placeholder="Enter your phone number" value="{{ form_values.phone|default:'' }}">
 
         <label for="college_id">College name</label>
         <select id="college_id" name="college_id" autocomplete="organization" required>

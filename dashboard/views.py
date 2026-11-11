@@ -24,7 +24,7 @@ from .models import (
     Skill,
     DailyAttendance,
 )
-from portal.models import AdminStudentRecord, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
+from portal.models import AdminStudentRecord, CollegeProfile, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
 from portal.forms import ACADEMIC_PROGRAMME_CHOICES
 
 
@@ -98,8 +98,102 @@ def login_view(request):
 
 
 def student_register_view(request):
-    messages.info(request, "Student accounts are created by your college. Please contact your college administrator for your portal ID and temporary password.")
-    return redirect("login")
+    if request.user.is_authenticated:
+        return _redirect_for_role(request.user)
+
+    colleges = list(
+        CollegeProfile.objects.select_related("user").prefetch_related("departments").filter(
+            user__is_active=True,
+            user__is_staff=False,
+            user__admin_profile__isnull=True,
+        ).order_by("college_name", "pk")
+    )
+    departments_by_college = {}
+    for college in colleges:
+        department_names = {
+            department.name.strip()
+            for department in college.departments.all()
+            if department.name and department.name.strip()
+        }
+        department_names.update(
+            name.strip()
+            for name in AdminStudentRecord.objects.filter(college_name__iexact=college.college_name)
+            .values_list("department", flat=True)
+            if name and name.strip()
+        )
+        department_names.update(
+            name.strip()
+            for name in college.students.values_list("department", flat=True)
+            if name and name.strip()
+        )
+        departments_by_college[str(college.pk)] = sorted(department_names, key=str.casefold)
+
+    legacy_departments = {
+        "engineering": "Engineering",
+        "arts and commerce": "Arts & Commerce",
+        "pharmacy": "Pharmacy",
+        "allied health science": "Allied Health Science",
+        "architecture and design": "Architecture & Design",
+        "nursing": "Nursing",
+        "management": "Management",
+    }
+    form_values = {
+        field: request.POST.get(field, "").strip()
+        for field in ("username", "first_name", "last_name", "email", "phone", "college_id", "department_name")
+    } if request.method == "POST" else {}
+
+    if request.method == "POST":
+        username = form_values["username"]
+        password = request.POST.get("password", "")
+        college_id = form_values["college_id"]
+        if not college_id:
+            college_name = request.POST.get("college_name", "").strip()
+            college = next((item for item in colleges if item.college_name.casefold() == college_name.casefold()), None)
+        else:
+            college = next((item for item in colleges if str(item.pk) == college_id), None)
+        department_name = form_values["department_name"] or request.POST.get("department", "").strip()
+        valid_department_names = departments_by_college.get(str(college.pk), []) if college else []
+        has_configured_departments = college.departments.exists() if college else False
+        canonical_legacy_name = legacy_departments.get(department_name.casefold())
+
+        if not username or not password:
+            messages.error(request, "Username and password are required.")
+        elif college is None:
+            messages.error(request, "Choose a college from the list.")
+        elif department_name not in valid_department_names and not (
+            not has_configured_departments and canonical_legacy_name
+        ):
+            messages.error(request, "Choose a department that belongs to the selected college.")
+        elif User.objects.filter(username__iexact=username).exists():
+            messages.error(request, f"Username '{username}' is already taken.")
+        else:
+            department_name = department_name if department_name in valid_department_names else canonical_legacy_name
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username,
+                    password=password,
+                    first_name=form_values["first_name"],
+                    last_name=form_values["last_name"],
+                    email=form_values["email"],
+                    is_active=False,
+                )
+                StudentProfile.objects.create(
+                    user=user, college=college, department=department_name, phone=form_values["phone"],
+                )
+                AdminStudentRecord.objects.create(
+                    name=user.get_full_name() or user.username,
+                    college_name=college.college_name,
+                    department=department_name,
+                    status="Pending",
+                )
+            messages.success(request, "Your student account has been created. Please wait for college or administrator approval before signing in.")
+            return redirect("login")
+
+    return render(request, "dashboard/student_register.html", {
+        "form_values": form_values,
+        "colleges": colleges,
+        "departments_by_college": departments_by_college,
+    })
 
 
 class StudentPasswordChangeView(PasswordChangeView):
