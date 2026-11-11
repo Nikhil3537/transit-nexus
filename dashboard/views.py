@@ -1,4 +1,5 @@
 import json
+import re
 import secrets
 from decimal import Decimal, InvalidOperation
 from datetime import date, timedelta
@@ -247,13 +248,25 @@ def logout_view(request):
 
 def _base_context(profile):
     """Common context every page needs (unread message badge, etc.)"""
+    college = profile.college
+    configured_semester = (
+        college.semester_label
+        if college and college.semester_label
+        else profile.semester_label
+    ).strip()
+    semester_match = re.search(r"\b([1-9]|[1-9][0-9]+)\b", configured_semester)
+    if semester_match:
+        display_semester_label = f"Semester {semester_match.group(1)}"
+    elif configured_semester.casefold().startswith("odd"):
+        display_semester_label = "Semester 1"
+    elif configured_semester.casefold().startswith("even"):
+        display_semester_label = "Semester 2"
+    else:
+        display_semester_label = configured_semester or "Semester 1"
     return {
         "profile": profile,
-        "display_semester_label": (
-            profile.semester_label
-            if profile.semester_label and profile.semester_label.casefold() != "current semester"
-            else (profile.college.semester_label if profile.college else profile.semester_label)
-        ),
+        "display_semester_label": display_semester_label,
+        "display_semester_range": college.academic_year if college else profile.semester_range,
         "unread_message_count": profile.messages.filter(is_read=False).count(),
     }
 
