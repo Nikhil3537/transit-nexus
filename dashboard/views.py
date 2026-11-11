@@ -265,6 +265,9 @@ def _base_context(profile):
         display_semester_label = configured_semester or "Semester 1"
     return {
         "profile": profile,
+        "show_college_brand_logo": bool(
+            college and college.college_name.strip().casefold() == "anrvsa"
+        ),
         "display_semester_label": display_semester_label,
         "display_semester_range": college.academic_year if college else profile.semester_range,
         "unread_message_count": profile.messages.filter(is_read=False).count(),

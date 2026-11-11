@@ -133,6 +133,9 @@ def _nav_context(nav_list, active_label, role_title, role_tagline):
 def _page_ctx(profile, nav_list, active_label, title, subtitle, role_label, **extra):
     ctx = {
         "profile": profile,
+        "show_college_brand_logo": (
+            getattr(profile, "college_name", "").strip().casefold() == "anrvsa"
+        ),
         "page_title": title,
         "page_subtitle": subtitle,
         "user_role_label": role_label,

@@ -1,6 +1,6 @@
 {% load static %}
 <header class="topbar">
-  <img class="topbar-brand college-brand-logo" src="{% static 'dashboard/img/acharya-logo.png' %}" alt="Acharya Institutes">
+  {% if show_college_brand_logo %}<img class="topbar-brand college-brand-logo" src="{% static 'dashboard/img/acharya-logo.png' %}" alt="Acharya Institutes">{% else %}<img class="topbar-brand" src="{% static 'dashboard/img/transit-logo.png' %}" alt="Transit Training and Recruitment Partner">{% endif %}
   <div class="topbar-welcome">
     <img class="avatar-sm" src="https://ui-avatars.com/api/?name={{ profile.user.first_name }}+{{ profile.user.last_name }}&background=16274d&color=fff" alt="avatar">
     <div>
