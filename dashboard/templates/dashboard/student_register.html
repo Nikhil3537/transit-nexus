@@ -9,7 +9,7 @@
         <img src="{% static 'dashboard/img/transit-logo.png' %}" alt="Transit Training and Recruitment Partner">
       </div>
       <h2>Create Student Account</h2>
-      <p class="auth-sub">Choose your college first, then select one of its departments.</p>
+      <p class="auth-sub">Choose your college first, then select one of its departments. If no department is configured, the account will be marked Unassigned.</p>
 
       {% if messages %}
         {% for message in messages %}
@@ -17,13 +17,24 @@
         {% endfor %}
       {% endif %}
 
+      {% if created_credentials %}
+        <div class="auth-success">
+          <strong>Save these temporary credentials</strong><br>
+          Username: <strong>{{ created_credentials.username }}</strong><br>
+          Temporary password: <strong>{{ created_credentials.password }}</strong><br>
+          Department: {{ created_credentials.department }}<br>
+          <small>The account is pending approval. These credentials will be required after approval.</small>
+        </div>
+      {% endif %}
+
       <form method="post">
         {% csrf_token %}
+        <label class="auth-checkbox"><input type="checkbox" id="generate_credentials" name="generate_credentials"> Generate username and temporary password automatically</label>
         <label for="username">Username</label>
-        <input type="text" id="username" name="username" value="{{ form_values.username|default:'' }}" required>
+        <input type="text" id="username" name="username" value="{{ form_values.username|default:'' }}" required autocomplete="username">
 
         <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
+        <input type="password" id="password" name="password" required autocomplete="new-password">
 
         <label for="first_name">First name</label>
         <input type="text" id="first_name" name="first_name" value="{{ form_values.first_name|default:'' }}">
@@ -44,7 +55,7 @@
         </select>
 
         <label for="department_name">Department name</label>
-        <select id="department_name" name="department_name" required disabled>
+        <select id="department_name" name="department_name" disabled>
           <option value="">Choose a college first</option>
         </select>
 
@@ -76,10 +87,27 @@
       if (departmentName === selectedDepartment) option.selected = true;
       departmentSelect.appendChild(option);
     });
-    departmentSelect.disabled = departments.length === 0;
+    departmentSelect.disabled = !collegeSelect.value;
+    departmentSelect.required = departments.length > 0;
+    if (!departments.length && collegeSelect.value) {
+      departmentSelect.options[0].textContent = "No departments configured — assign later";
+    }
   }
 
   collegeSelect.addEventListener("change", updateDepartments);
   updateDepartments();
+
+  const generateCredentials = document.getElementById("generate_credentials");
+  const usernameInput = document.getElementById("username");
+  const passwordInput = document.getElementById("password");
+  function toggleGeneratedCredentials() {
+    const generated = generateCredentials.checked;
+    usernameInput.disabled = generated;
+    passwordInput.disabled = generated;
+    usernameInput.required = !generated;
+    passwordInput.required = !generated;
+  }
+  generateCredentials.addEventListener("change", toggleGeneratedCredentials);
+  toggleGeneratedCredentials();
 </script>
 {% endblock %}

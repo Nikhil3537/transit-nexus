@@ -1,4 +1,5 @@
 import json
+import secrets
 from decimal import Decimal, InvalidOperation
 from datetime import date, timedelta
 
@@ -145,6 +146,7 @@ def student_register_view(request):
     if request.method == "POST":
         username = form_values["username"]
         password = request.POST.get("password", "")
+        generate_credentials = request.POST.get("generate_credentials") == "on"
         college_id = form_values["college_id"]
         if not college_id:
             college_name = request.POST.get("college_name", "").strip()
@@ -156,18 +158,27 @@ def student_register_view(request):
         has_configured_departments = college.departments.exists() if college else False
         canonical_legacy_name = legacy_departments.get(department_name.casefold())
 
+        if generate_credentials:
+            username = "student-" + secrets.token_hex(4)
+            while User.objects.filter(username__iexact=username).exists():
+                username = "student-" + secrets.token_hex(4)
+            password = secrets.token_urlsafe(10)
+
         if not username or not password:
             messages.error(request, "Username and password are required.")
         elif college is None:
             messages.error(request, "Choose a college from the list.")
-        elif department_name not in valid_department_names and not (
-            not has_configured_departments and canonical_legacy_name
+        elif (
+            (has_configured_departments and not department_name)
+            or (department_name and department_name not in valid_department_names and not (
+                not has_configured_departments and canonical_legacy_name
+            ))
         ):
             messages.error(request, "Choose a department that belongs to the selected college.")
         elif User.objects.filter(username__iexact=username).exists():
             messages.error(request, f"Username '{username}' is already taken.")
         else:
-            department_name = department_name if department_name in valid_department_names else canonical_legacy_name
+            department_name = department_name if department_name in valid_department_names else canonical_legacy_name or "Unassigned"
             with transaction.atomic():
                 user = User.objects.create_user(
                     username=username,
@@ -178,7 +189,11 @@ def student_register_view(request):
                     is_active=False,
                 )
                 StudentProfile.objects.create(
-                    user=user, college=college, department=department_name, phone=form_values["phone"],
+                    user=user,
+                    college=college,
+                    department=department_name,
+                    phone=form_values["phone"],
+                    must_change_password=generate_credentials,
                 )
                 AdminStudentRecord.objects.create(
                     name=user.get_full_name() or user.username,
@@ -186,7 +201,15 @@ def student_register_view(request):
                     department=department_name,
                     status="Pending",
                 )
-            messages.success(request, "Your student account has been created. Please wait for college or administrator approval before signing in.")
+            credential_note = (
+                f" Generated username: {username}; temporary password: {password}."
+                if generate_credentials else ""
+            )
+            messages.success(
+                request,
+                "Your student account has been created. Please wait for college or administrator approval before signing in."
+                + credential_note,
+            )
             return redirect("login")
 
     return render(request, "dashboard/student_register.html", {
