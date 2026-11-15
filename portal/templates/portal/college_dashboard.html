@@ -1,6 +1,17 @@
 {% extends "portal/_page_base.html" %}
 {% block title %}College Dashboard · Transit Nexus{% endblock %}
 {% block content %}
+<section class="panel">
+  <form method="get" class="form-grid">
+    <label>Academic year
+      <select name="academic_year" onchange="this.form.submit()">
+        {% for value, label in academic_year_choices %}<option value="{{ value }}" {% if value == selected_academic_year %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <noscript><button class="btn btn-primary" type="submit">Apply</button></noscript>
+  </form>
+  {% if selected_academic_year != profile.academic_year %}<p class="muted">No data is available for this college in the selected academic year.</p>{% endif %}
+</section>
 
 <section class="stat-grid" style="grid-template-columns: repeat(5, 1fr);">
   <div class="stat-card">

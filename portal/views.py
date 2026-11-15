@@ -229,12 +229,18 @@ def home_view(request):
 def admin_dashboard(request):
     profile, _ = AdminProfile.objects.get_or_create(user=request.user)
     selected_semester = request.GET.get("semester", "").strip()
+    selected_academic_year = request.GET.get("academic_year", "").strip()
+    valid_academic_years = {value for value, _label in ACADEMIC_YEAR_CHOICES}
+    if selected_academic_year not in valid_academic_years:
+        selected_academic_year = ""
 
     partner_by_name = {college.name.casefold(): college for college in PartnerCollege.objects.all()}
     colleges = []
     for college in CollegeProfile.objects.select_related("user").filter(
         user__admin_profile__isnull=True, user__is_staff=False,
     ):
+        if selected_academic_year and college.academic_year != selected_academic_year:
+            continue
         partner = partner_by_name.get(college.college_name.casefold())
         colleges.append({
             "profile": college,
@@ -306,6 +312,8 @@ def admin_dashboard(request):
         "syllabus_updates": syllabus_updates,
         "semester_options": _semester_options(),
         "selected_semester": selected_semester,
+        "academic_year_choices": ACADEMIC_YEAR_CHOICES,
+        "selected_academic_year": selected_academic_year,
     }
     return render(request, "portal/admin_dashboard.html", context)
 
@@ -636,7 +644,11 @@ def _department_summary_rows(profile, semester_scope=""):
 def college_dashboard(request):
     profile = _college_workspace(request)
     selected_semester = request.GET.get("semester", "").strip() or profile.semester_label
-    departments = _department_summary_rows(profile, selected_semester)
+    selected_academic_year = request.GET.get("academic_year", "").strip() or profile.academic_year
+    departments = (
+        _department_summary_rows(profile, selected_semester)
+        if selected_academic_year == profile.academic_year else []
+    )
     department_scope = _college_department_scope(request)
     if department_scope:
         departments = [d for d in departments if _canonical_department_name(d.name) == department_scope]
@@ -649,7 +661,7 @@ def college_dashboard(request):
     else:
         avg_performance, avg_attendance = 0, 0
 
-    total_assessments = profile.assessments.count() or sum(d.assessments_taken for d in departments)
+    total_assessments = (profile.assessments.count() or sum(d.assessments_taken for d in departments)) if departments else 0
     total_training_hours = sum(d.training_hours for d in departments)
 
     dist_buckets = {"Excellent (>=85%)": 0, "Good (70% - 84%)": 0, "Average (50% - 69%)": 0, "Needs Improvement (<50%)": 0}
@@ -697,6 +709,8 @@ def college_dashboard(request):
         "quick_reports": quick_reports,
         "semester_options": _semester_options(),
         "selected_semester": selected_semester,
+        "academic_year_choices": ACADEMIC_YEAR_CHOICES,
+        "selected_academic_year": selected_academic_year,
     }
     return render(request, "portal/college_dashboard.html", context)
 

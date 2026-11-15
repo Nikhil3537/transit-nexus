@@ -130,7 +130,8 @@ def student_register_view(request):
         )
         # JVIT's MBA option must remain available even for older workspaces
         # whose department row was created as just "MBA" or is missing.
-        if "jvit" in college.college_name.casefold():
+        college_name_key = college.college_name.casefold()
+        if "jvit" in college_name_key or "jnanavikas" in college_name_key:
             department_names = {
                 "MBA (Master of Business Administration)"
                 if name.casefold() == "mba" else name

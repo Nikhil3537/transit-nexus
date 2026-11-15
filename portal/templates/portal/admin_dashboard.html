@@ -13,6 +13,18 @@
   </div>
 </section>
 
+<section class="panel">
+  <form method="get" class="form-grid">
+    <label>Academic year
+      <select name="academic_year" onchange="this.form.submit()">
+        <option value="">All academic years</option>
+        {% for value, label in academic_year_choices %}<option value="{{ value }}" {% if value == selected_academic_year %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <noscript><button class="btn btn-primary" type="submit">Apply</button></noscript>
+  </form>
+</section>
+
 <section class="stat-grid" style="grid-template-columns: repeat(6, 1fr);">
   <div class="stat-card">
     <div class="stat-icon blue"><i class="fa-solid fa-building-columns"></i></div>
