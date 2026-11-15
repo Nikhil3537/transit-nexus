@@ -1,0 +1,18 @@
+{% extends "dashboard/_page_base.html" %}
+{% block title %}Training Feedback · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>TRANSIT Training Feedback Form</h3><span class="muted">{{ profile.college.college_name }}</span></div>
+  <p>Please share your feedback regarding today’s TRANSIT training session.</p>
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    {% for field in feedback_form %}
+      <div class="feedback-field{% if field.name == 'comments' %} feedback-comments{% endif %}">
+        {{ field.label_tag }}{{ field }}
+        {% if field.errors %}<small class="form-error">{{ field.errors|striptags }}</small>{% endif %}
+      </div>
+    {% endfor %}
+    <div><button class="btn btn-primary" type="submit">Submit feedback</button></div>
+  </form>
+</section>
+{% endblock %}

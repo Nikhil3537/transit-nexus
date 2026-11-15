@@ -1,0 +1,18 @@
+{% extends "portal/_page_base.html" %}
+{% block title %}Training Feedback · Transit Nexus{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head"><h3>Student Training Feedback</h3><span class="muted">Download submissions day-wise</span></div>
+  <form method="get" class="form-grid">
+    <label>Submission date<input type="date" name="date" value="{{ selected_date }}" required></label>
+    <div style="display:flex; gap:.75rem; align-items:end; flex-wrap:wrap;"><button class="btn btn-primary" type="submit">View feedback</button><button class="btn btn-secondary" type="submit" name="download" value="csv">Download CSV</button></div>
+  </form>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>{{ feedback_date|date:"d M Y" }}</h3><span>{{ feedback|length }} submissions</span></div>
+  <table class="data-table"><thead><tr><th>Student</th><th>USN</th><th>College</th><th>Branch</th><th>Year</th><th>Trainer</th><th>Useful?</th><th>Comments</th></tr></thead><tbody>
+    {% for item in feedback %}<tr><td>{{ item.student_name }}</td><td>{{ item.usn }}</td><td>{{ item.college.college_name }}</td><td>{{ item.branch }}</td><td>{{ item.academic_year }}</td><td>{{ item.trainer_name }}</td><td>{{ item.session_useful }}</td><td>{{ item.comments|default:"—" }}</td></tr>
+    {% empty %}<tr><td colspan="8">No feedback submissions for this date.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endblock %}

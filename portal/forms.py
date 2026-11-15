@@ -5,6 +5,7 @@ from django.utils import timezone
 from .models import (
     AdminInvoice, CollegeAssessment, CollegeProfile, CollegeProgram, CollegeQuickReport, CollegeStudent,
     Department, Faculty, OnlineTest, PlacementRecord, SyllabusCoverage,
+    TrainingFeedback,
 )
 
 
@@ -202,6 +203,35 @@ class CollegeProgramForm(forms.ModelForm):
     class Meta:
         model = CollegeProgram
         fields = ["name", "students_count", "status"]
+
+
+class TrainingFeedbackForm(forms.ModelForm):
+    class Meta:
+        model = TrainingFeedback
+        fields = [
+            "trainer_name", "content_hold", "clarity", "topic_completion", "communication",
+            "objectives_followed", "organization", "doubt_clarification", "materials_useful",
+            "topic_understandable", "participation_appreciation", "session_useful", "comments",
+        ]
+        labels = {
+            "content_hold": "Trainer held on to the content",
+            "clarity": "Clarity in training",
+            "topic_completion": "Topic completion in time",
+            "communication": "Communication skills",
+            "objectives_followed": "Objectives for topic identified and followed",
+            "organization": "Organization of the content",
+            "doubt_clarification": "Clarification of doubts",
+            "materials_useful": "Materials distributed were useful",
+            "topic_understandable": "Topic was understandable",
+            "participation_appreciation": "Trainer appreciated class participation / interaction",
+            "session_useful": "Did you find the session useful",
+            "comments": "Comments and suggestions",
+        }
+        widgets = {field: forms.RadioSelect for field in [
+            "content_hold", "clarity", "topic_completion", "communication", "objectives_followed",
+            "organization", "doubt_clarification", "materials_useful", "topic_understandable",
+            "participation_appreciation", "session_useful",
+        ]}
 
 
 class DepartmentAttendanceForm(forms.ModelForm):

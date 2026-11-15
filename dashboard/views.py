@@ -26,8 +26,8 @@ from .models import (
     Skill,
     DailyAttendance,
 )
-from portal.models import ACADEMIC_YEAR_CHOICES, AdminStudentRecord, CollegeProfile, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
-from portal.forms import ACADEMIC_PROGRAMME_CHOICES
+from portal.models import ACADEMIC_YEAR_CHOICES, AdminStudentRecord, CollegeProfile, OnlineTest, OnlineTestAnswer, OnlineTestAttempt, TrainingFeedback
+from portal.forms import ACADEMIC_PROGRAMME_CHOICES, TrainingFeedbackForm
 
 
 DEFAULT_DEPARTMENT_NAMES = [
@@ -404,6 +404,38 @@ def student_dashboard(request):
         "total_learning_hours": profile.total_learning_hours,
     }
     return render(request, "dashboard/student_dashboard.html", context)
+
+
+@login_required
+def training_feedback_view(request):
+    if not _require_student(request):
+        return HttpResponseForbidden("Student access is required.")
+    profile, _ = StudentProfile.objects.get_or_create(user=request.user)
+    if profile.college_id is None:
+        return HttpResponseForbidden("A college must be assigned before submitting feedback.")
+    if request.method == "POST":
+        form = TrainingFeedbackForm(request.POST)
+        if form.is_valid():
+            feedback = form.save(commit=False)
+            feedback.student = profile
+            feedback.college = profile.college
+            feedback.academic_year = profile.academic_year or profile.college.academic_year
+            feedback.student_name = profile.user.get_full_name() or profile.user.username
+            feedback.usn = profile.user.username
+            feedback.branch = profile.department
+            feedback.save()
+            messages.success(request, "Thank you. Your training feedback was submitted successfully.")
+            return redirect("training_feedback")
+    else:
+        form = TrainingFeedbackForm()
+    context = {
+        **_base_context(profile),
+        "active_page": "training_feedback",
+        "page_title": "Training Feedback",
+        "page_subtitle": "Submit feedback at the end of today’s training session",
+        "feedback_form": form,
+    }
+    return render(request, "dashboard/training_feedback.html", context)
 
 
 @login_required

@@ -61,4 +61,5 @@ urlpatterns = [
     path("messages/", views.messages_view, name="messages_list"),
     path("calendar/", views.calendar_view, name="calendar_view"),
     path("payments/", views.payments_view, name="payments"),
+    path("training-feedback/", views.training_feedback_view, name="training_feedback"),
 ]

@@ -33,11 +33,13 @@ from .models import (
     TrainerCalendarEvent, TrainerAvailability, OnlineTest, OnlineTestQuestion,
     OnlineTestAttempt, OnlineTestAnswer, JobDrive, Offer,
     ACADEMIC_YEAR_CHOICES,
+    TrainingFeedback,
 )
 from .forms import (
     CollegeAssessmentForm, CollegeExternalTestForm, CollegeInvoiceForm, CollegeProgramForm, CollegeQuickReportForm,
     CollegeInvoiceForm, CollegeQuickReportForm, CollegeStudentAccountForm, CollegeStudentForm,
     DepartmentAttendanceForm, FacultyForm, OnlineTestForm, PlacementRecordForm, SyllabusCoverageForm,
+    TrainingFeedbackForm,
 )
 from dashboard.models import Assessment, DailyAttendance, StudentProfile
 
@@ -50,6 +52,7 @@ ADMIN_NAV = [
     ("fa-solid fa-file-import", "Bulk Import", "bulk_import"),
     ("fa-solid fa-headset", "Support & Issues", "admin_support"),
     ("fa-solid fa-bullhorn", "Communications", "admin_communications"),
+    ("fa-solid fa-comment-dots", "Training Feedback", "admin_feedback"),
     ("fa-solid fa-gear", "Settings", "admin_settings"),
 ]
 
@@ -316,6 +319,45 @@ def admin_dashboard(request):
         "selected_academic_year": selected_academic_year,
     }
     return render(request, "portal/admin_dashboard.html", context)
+
+
+@platform_admin_required
+def admin_feedback(request):
+    selected_date = request.GET.get("date", "").strip()
+    try:
+        feedback_date = date.fromisoformat(selected_date) if selected_date else timezone.localdate()
+    except ValueError:
+        feedback_date = timezone.localdate()
+        selected_date = feedback_date.isoformat()
+    feedback = TrainingFeedback.objects.select_related("student__user", "college").filter(
+        submitted_date=feedback_date
+    )
+    if request.GET.get("download") == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "Date", "College", "Academic Year", "Student", "USN", "Branch", "Trainer",
+            "Content", "Clarity", "Completion", "Communication", "Objectives", "Organization",
+            "Doubts", "Materials", "Understandable", "Participation", "Useful", "Comments",
+        ])
+        for item in feedback:
+            writer.writerow([
+                item.submitted_date, item.college.college_name, item.academic_year, item.student_name,
+                item.usn, item.branch, item.trainer_name, item.content_hold, item.clarity,
+                item.topic_completion, item.communication, item.objectives_followed, item.organization,
+                item.doubt_clarification, item.materials_useful, item.topic_understandable,
+                item.participation_appreciation, item.session_useful, item.comments,
+            ])
+        response = HttpResponse(output.getvalue(), content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="training-feedback-{feedback_date.isoformat()}.csv"'
+        return response
+    profile, _ = AdminProfile.objects.get_or_create(user=request.user)
+    ctx = _page_ctx(
+        profile, ADMIN_NAV, "Training Feedback", "Training Feedback",
+        f"{feedback.count()} submissions on {feedback_date.isoformat()}", "Super Admin",
+        feedback=feedback, selected_date=feedback_date.isoformat(), feedback_date=feedback_date,
+    )
+    return render(request, "portal/admin_feedback.html", ctx)
 
 
 PREFERRED_DEPARTMENT_ORDER = [

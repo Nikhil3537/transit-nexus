@@ -23,6 +23,7 @@ urlpatterns = [
     path("admin-users/", views.admin_users, name="admin_users"),
     path("admin-bulk-import/", views.bulk_import, name="bulk_import"),
     path("admin-communications/", views.admin_communications, name="admin_communications"),
+    path("admin-feedback/", views.admin_feedback, name="admin_feedback"),
     path("admin-settings/", views.admin_settings, name="admin_settings"),
 
     # College

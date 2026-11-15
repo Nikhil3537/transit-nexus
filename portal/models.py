@@ -98,6 +98,36 @@ class AdminScheduleItem(models.Model):
         ordering = ["date"]
 
 
+class TrainingFeedback(models.Model):
+    RATING_CHOICES = [("Excellent", "Excellent"), ("Good", "Good"), ("Average", "Average")]
+
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name="training_feedback")
+    college = models.ForeignKey("CollegeProfile", on_delete=models.CASCADE, related_name="training_feedback")
+    submitted_date = models.DateField(auto_now_add=True)
+    academic_year = models.CharField(max_length=20, blank=True)
+    student_name = models.CharField(max_length=150)
+    usn = models.CharField(max_length=80)
+    branch = models.CharField(max_length=150)
+    trainer_name = models.CharField(max_length=150)
+    content_hold = models.CharField(max_length=20, choices=RATING_CHOICES)
+    clarity = models.CharField(max_length=20, choices=RATING_CHOICES)
+    topic_completion = models.CharField(max_length=20, choices=RATING_CHOICES)
+    communication = models.CharField(max_length=20, choices=RATING_CHOICES)
+    objectives_followed = models.CharField(max_length=20, choices=RATING_CHOICES)
+    organization = models.CharField(max_length=20, choices=RATING_CHOICES)
+    doubt_clarification = models.CharField(max_length=20, choices=RATING_CHOICES)
+    materials_useful = models.CharField(max_length=20, choices=RATING_CHOICES)
+    topic_understandable = models.CharField(max_length=20, choices=RATING_CHOICES)
+    participation_appreciation = models.CharField(max_length=20, choices=RATING_CHOICES)
+    session_useful = models.CharField(max_length=20, choices=RATING_CHOICES)
+    comments = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-submitted_date", "-created_at"]
+        indexes = [models.Index(fields=["submitted_date", "college"])]
+
+
 # =========================================================
 # COLLEGE DASHBOARD
 # =========================================================
