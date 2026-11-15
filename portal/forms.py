@@ -61,7 +61,7 @@ ACADEMIC_PROGRAMME_CHOICES = [
     ]),
     ("Management & Commerce", [
         ("BBA", "BBA"),
-        ("MBA", "MBA"),
+        ("MBA (Master of Business Administration)", "MBA (Master of Business Administration)"),
         ("Bachelor of Commerce (B.Com)", "Bachelor of Commerce (B.Com)"),
         ("Bachelor of Management Studies (BMS)", "Bachelor of Management Studies (BMS)"),
         ("Bachelor of Business Management (BBM)", "Bachelor of Business Management (BBM)"),
