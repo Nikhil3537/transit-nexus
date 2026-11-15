@@ -939,6 +939,26 @@ class OnlineTestWorkflowTests(TestCase):
         self.assertEqual(online_test.external_url, "https://testmoz.com/123456")
         self.assertEqual(online_test.questions.count(), 0)
 
+    def test_college_can_save_external_link_when_datetime_includes_seconds(self):
+        self.client.force_login(self.college_user)
+        form_page = self.client.get(reverse("college_assessments"))
+        self.assertContains(form_page, 'type="datetime-local"')
+        now = timezone.localtime()
+        response = self.client.post(reverse("college_assessments"), {
+            "action": "add_external_test",
+            "title": "College Testmoz Assessment",
+            "instructions": "Complete this assessment on Testmoz.",
+            "external_url": "https://testmoz.com/654321",
+            "opens_at": (now + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S"),
+            "closes_at": (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S"),
+            "duration_minutes": "30",
+        })
+
+        self.assertRedirects(response, reverse("college_assessments"))
+        online_test = OnlineTest.objects.get(college=self.college, title="College Testmoz Assessment")
+        self.assertEqual(online_test.external_url, "https://testmoz.com/654321")
+        self.assertIsNone(online_test.trainer)
+
     def test_students_only_see_tests_assigned_to_their_college(self):
         target_test, _ = self.create_test()
         other_user = User.objects.create_user(username="other-test-college-admin", password="test-pass")

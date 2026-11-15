@@ -9,6 +9,11 @@ from .models import (
 )
 
 
+# ``datetime-local`` controls normally submit minutes, but browsers may include
+# seconds when the value was selected or populated programmatically.
+DATETIME_LOCAL_INPUT_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
+
+
 ACADEMIC_PROGRAMME_CHOICES = [
     ("Engineering & Technology", [
         ("Artificial Intelligence and Data Science", "Artificial Intelligence and Data Science"),
@@ -280,8 +285,14 @@ class CollegeQuickReportForm(forms.ModelForm):
 class OnlineTestForm(forms.ModelForm):
     college = forms.ModelChoiceField(queryset=CollegeProfile.objects.none(), required=True)
     external_url = forms.URLField(required=False, help_text="Optional Testmoz URL")
-    opens_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
-    closes_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
+    opens_at = forms.DateTimeField(
+        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+    )
+    closes_at = forms.DateTimeField(
+        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+    )
 
     class Meta:
         model = OnlineTest
@@ -314,8 +325,14 @@ class CollegeExternalTestForm(forms.ModelForm):
         label="Test URL",
         help_text="Paste the participant link from Testmoz, not your Testmoz account URL.",
     )
-    opens_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
-    closes_at = forms.DateTimeField(input_formats=["%Y-%m-%dT%H:%M"])
+    opens_at = forms.DateTimeField(
+        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+    )
+    closes_at = forms.DateTimeField(
+        input_formats=DATETIME_LOCAL_INPUT_FORMATS,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+    )
 
     class Meta:
         model = OnlineTest
