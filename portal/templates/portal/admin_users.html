@@ -38,6 +38,14 @@
     <input type="hidden" name="role" value="college">
     <label>College name<input name="college_name" required></label>
     <label>Location<input name="college_location" placeholder="City, State"></label>
+    <label>Academic year
+      <select name="academic_year" required>
+        {% for value, label in academic_year_choices %}
+          <option value="{{ value }}" {% if value == "2025-27" %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <small class="muted">Choose the batch year before adding programs such as MBA.</small>
+    </label>
     <label>Login username<input name="username" required></label>
     <label>Temporary password<input name="password" type="password" required></label>
     <label>Admin first name<input name="first_name"></label>

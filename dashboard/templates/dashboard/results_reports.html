@@ -1,9 +1,10 @@
 {% extends "dashboard/_page_base.html" %}
 {% block title %}Results & Reports · Transit Nexus{% endblock %}
 {% block content %}
+{% if not has_year_data %}<div class="alert alert-info">No analysis data is available for this academic year.</div>{% endif %}
 <section class="grid-2">
   <div class="panel">
-    <div class="panel-head"><h3>Score Trend</h3></div>
+    <div class="panel-head"><h3>Score Trend</h3><span class="muted">Academic year {{ selected_academic_year }}</span></div>
     <canvas id="scoreTrend" height="120"></canvas>
   </div>
   <div class="panel">

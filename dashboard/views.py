@@ -26,7 +26,7 @@ from .models import (
     Skill,
     DailyAttendance,
 )
-from portal.models import AdminStudentRecord, CollegeProfile, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
+from portal.models import ACADEMIC_YEAR_CHOICES, AdminStudentRecord, CollegeProfile, OnlineTest, OnlineTestAnswer, OnlineTestAttempt
 from portal.forms import ACADEMIC_PROGRAMME_CHOICES
 
 
@@ -292,15 +292,24 @@ def student_colleges_view(request):
 @login_required
 def student_dashboard(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
+    college_year = profile.college.academic_year if profile.college else ""
+    valid_years = {value for value, _label in ACADEMIC_YEAR_CHOICES}
+    year_choices = list(ACADEMIC_YEAR_CHOICES)
+    if college_year and college_year not in valid_years:
+        year_choices.insert(0, (college_year, college_year))
+    selected_academic_year = request.GET.get("academic_year", "").strip()
+    if selected_academic_year not in valid_years and selected_academic_year != college_year:
+        selected_academic_year = college_year
+    has_year_data = not college_year or selected_academic_year == college_year
 
     colleges = [profile.college] if profile.college else []
-    enrollments = profile.enrollments.select_related("course").all()
-    attendance_records = list(profile.attendance_records.all())
-    daily_attendance = list(profile.daily_attendance.all()[:12])
-    assessments = list(profile.assessments.all())
-    strengths = profile.strengths.all()
-    improvements = profile.improvement_areas.all()
-    activities = profile.activities.all()[:6]
+    enrollments = profile.enrollments.select_related("course").all() if has_year_data else profile.enrollments.none()
+    attendance_records = list(profile.attendance_records.all()) if has_year_data else []
+    daily_attendance = list(profile.daily_attendance.all()[:12]) if has_year_data else []
+    assessments = list(profile.assessments.all()) if has_year_data else []
+    strengths = profile.strengths.all() if has_year_data else profile.strengths.none()
+    improvements = profile.improvement_areas.all() if has_year_data else profile.improvement_areas.none()
+    activities = profile.activities.all()[:6] if has_year_data else profile.activities.none()
 
     # ---- Attendance summary ----
     total_classes = sum(a.total_classes for a in attendance_records)
@@ -350,6 +359,9 @@ def student_dashboard(request):
 
     context = {
         **_base_context(profile),
+        "academic_year_choices": year_choices,
+        "selected_academic_year": selected_academic_year,
+        "has_year_data": has_year_data,
         "active_page": "dashboard",
         "colleges": colleges,
         "enrollments": enrollments,
@@ -740,8 +752,17 @@ def download_test_answer_file(request, answer_id):
 @login_required
 def results_reports_view(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
-    enrollments = profile.enrollments.select_related("course").all()
-    assessments = list(profile.assessments.filter(status="completed", score__isnull=False))
+    college_year = profile.college.academic_year if profile.college else ""
+    valid_years = {value for value, _label in ACADEMIC_YEAR_CHOICES}
+    year_choices = list(ACADEMIC_YEAR_CHOICES)
+    if college_year and college_year not in valid_years:
+        year_choices.insert(0, (college_year, college_year))
+    selected_academic_year = request.GET.get("academic_year", "").strip()
+    if selected_academic_year not in valid_years and selected_academic_year != college_year:
+        selected_academic_year = college_year
+    has_year_data = not college_year or selected_academic_year == college_year
+    enrollments = profile.enrollments.select_related("course").all() if has_year_data else profile.enrollments.none()
+    assessments = list(profile.assessments.filter(status="completed", score__isnull=False)) if has_year_data else []
 
     trend_source = sorted(assessments, key=lambda a: a.date)[-6:]
     trend = {
@@ -752,6 +773,9 @@ def results_reports_view(request):
 
     context = {
         **_base_context(profile),
+        "academic_year_choices": year_choices,
+        "selected_academic_year": selected_academic_year,
+        "has_year_data": has_year_data,
         "active_page": "results_reports",
         "page_title": "Results & Reports",
         "page_subtitle": "Your academic performance at a glance",

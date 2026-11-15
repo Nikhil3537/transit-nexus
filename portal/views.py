@@ -32,6 +32,7 @@ from .models import (
     BatchAttendanceEntry, TrainerAssignment, TrainerStudent, QuestionBankItem,
     TrainerCalendarEvent, TrainerAvailability, OnlineTest, OnlineTestQuestion,
     OnlineTestAttempt, OnlineTestAnswer, JobDrive, Offer,
+    ACADEMIC_YEAR_CHOICES,
 )
 from .forms import (
     CollegeAssessmentForm, CollegeExternalTestForm, CollegeInvoiceForm, CollegeProgramForm, CollegeQuickReportForm,
@@ -1354,10 +1355,13 @@ def admin_users(request):
                     AdminProfile.objects.create(user=user)
                 elif role == "college":
                     college_location = request.POST.get("college_location", "").strip()
+                    academic_year = request.POST.get("academic_year", "").strip()
+                    valid_years = {value for value, _ in ACADEMIC_YEAR_CHOICES}
                     CollegeProfile.objects.create(
                         user=user,
                         college_name=college_name,
                         location=college_location or "Not specified",
+                        academic_year=academic_year if academic_year in valid_years else "2024-26",
                     )
                     PartnerCollege.objects.get_or_create(name=college_name)
                 elif role == "trainer":
@@ -1465,6 +1469,7 @@ def admin_users(request):
     ctx = _page_ctx(profile, ADMIN_NAV, "Users & Roles", "Users & Roles",
                     f"{total_accounts} total accounts", "Super Admin",
                     rows=rows, college_options=college_options, department_options=department_options,
+                    academic_year_choices=ACADEMIC_YEAR_CHOICES,
                     selected_college=selected_college, selected_role_tab=selected_role_tab,
                     total_accounts=total_accounts, student_accounts=student_accounts,
                     college_accounts=college_accounts, pending_accounts=pending_accounts)

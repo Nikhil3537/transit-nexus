@@ -31,10 +31,10 @@
   {% empty %}<div class="empty-state">No student records for this college.</div>{% endfor %}
 </section>
 <section class="panel" id="programs">
-  <div class="panel-head"><h3>Training Programs</h3><span>{{ total_programs }} records</span></div>
-  <details class="manual-entry"><summary>Add training program</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_program">{{ program_form.as_p }}<button class="btn btn-primary" type="submit">Save program</button></form></details>
-  <table class="data-table"><thead><tr><th>Program</th><th>Students</th><th>Status</th></tr></thead><tbody>
-    {% for p in programs %}<tr><td>{{ p.name }}</td><td>{{ p.students_count }}</td><td>{{ p.get_status_display }}</td></tr>{% empty %}<tr><td colspan="3">No programs for this college.</td></tr>{% endfor %}
+  <div class="panel-head"><h3>Training Programs</h3><span>{{ total_programs }} records · Academic year {{ college.academic_year }}</span></div>
+  <details class="manual-entry"><summary>Add training program (for {{ college.academic_year }})</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="action" value="add_program">{{ program_form.as_p }}<button class="btn btn-primary" type="submit">Save program for {{ college.academic_year }}</button></form></details>
+  <table class="data-table"><thead><tr><th>Program</th><th>College academic year</th><th>Students</th><th>Status</th></tr></thead><tbody>
+    {% for p in programs %}<tr><td>{{ p.name }}</td><td>{{ college.academic_year }}</td><td>{{ p.students_count }}</td><td>{{ p.get_status_display }}</td></tr>{% empty %}<tr><td colspan="4">No programs for this college.</td></tr>{% endfor %}
   </tbody></table>
 </section>
 <section class="panel" id="assessments">

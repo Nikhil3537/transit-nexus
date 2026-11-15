@@ -9,6 +9,8 @@
         <h3>My College</h3>
         <a href="{% url 'student_colleges' %}">View Details</a>
       </div>
+      <p class="muted">Analysis for academic year <strong>{{ selected_academic_year }}</strong>.</p>
+      {% if not has_year_data %}<div class="alert alert-info">No analysis data is available for this academic year.</div>{% endif %}
       <div class="sw-grid">
         {% for college in colleges %}
           <div>

@@ -17,6 +17,16 @@
       </div>
       <i class="fa-solid fa-chevron-down"></i>
     </div>
+    {% if academic_year_choices %}
+    <form method="get" class="academic-year-selector">
+      <label class="sr-only" for="studentAcademicYear">Academic year</label>
+      <select id="studentAcademicYear" name="academic_year" onchange="this.form.submit()" aria-label="Select academic year">
+        {% for value, label in academic_year_choices %}
+          <option value="{{ value }}" {% if value == selected_academic_year %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
     <a href="{% url 'messages_list' %}" class="icon-btn">
       <i class="fa-regular fa-bell"></i>
       {% if unread_message_count %}<span class="badge-dot">{{ unread_message_count }}</span>{% endif %}

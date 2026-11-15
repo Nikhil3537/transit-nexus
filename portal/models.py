@@ -102,6 +102,14 @@ class AdminScheduleItem(models.Model):
 # COLLEGE DASHBOARD
 # =========================================================
 
+ACADEMIC_YEAR_CHOICES = [
+    ("2024-26", "2024-26"),
+    ("2025-27", "2025-27"),
+    ("2026-28", "2026-28"),
+    ("2027-29", "2027-29"),
+    ("2028-30", "2028-30"),
+]
+
 class CollegeProfile(models.Model):
     ACCOUNT_ROLE_CHOICES = [
         ("college_admin", "College Admin"),
@@ -118,7 +126,7 @@ class CollegeProfile(models.Model):
     department_scope = models.CharField(max_length=150, blank=True)
     college_name = models.CharField(max_length=150, default="ABC Engineering College")
     location = models.CharField(max_length=150, default="Bengaluru, Karnataka")
-    academic_year = models.CharField(max_length=20, default="2024 - 2025")
+    academic_year = models.CharField(max_length=20, choices=ACADEMIC_YEAR_CHOICES, default="2024-26")
     semester_label = models.CharField(max_length=40, default="Even Semester")
     placement_eligible = models.PositiveIntegerField(default=0)
 
