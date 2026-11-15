@@ -128,6 +128,15 @@ def student_register_view(request):
             for name in college.students.values_list("department", flat=True)
             if name and name.strip()
         )
+        # JVIT's MBA option must remain available even for older workspaces
+        # whose department row was created as just "MBA" or is missing.
+        if "jvit" in college.college_name.casefold():
+            department_names = {
+                "MBA (Master of Business Administration)"
+                if name.casefold() == "mba" else name
+                for name in department_names
+            }
+            department_names.add("MBA (Master of Business Administration)")
         departments_by_college[str(college.pk)] = sorted(department_names, key=str.casefold)
 
     legacy_departments = {
