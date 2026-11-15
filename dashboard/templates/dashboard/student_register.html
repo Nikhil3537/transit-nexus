@@ -9,7 +9,7 @@
         <img src="{% static 'dashboard/img/transit-logo.png' %}" alt="Transit Training and Recruitment Partner">
       </div>
       <h2>Create Student Account</h2>
-      <p class="auth-sub">Choose your college first, then select one of its departments. If no department is configured, the account will be marked Unassigned.</p>
+      <p class="auth-sub">Choose your college, academic year, and department. MBA is available for JVIT.</p>
 
       {% if messages %}
         {% for message in messages %}
@@ -57,6 +57,14 @@
         <label for="department_name">Department name</label>
         <select id="department_name" name="department_name" disabled>
           <option value="">Choose a college first</option>
+        </select>
+
+        <label for="academic_year">Academic year</label>
+        <select id="academic_year" name="academic_year" required>
+          <option value="">Choose your academic year</option>
+          {% for value, label in academic_year_choices %}
+            <option value="{{ value }}" {% if form_values.academic_year == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         </select>
 
         <button type="submit" class="btn-primary">Create Account</button>

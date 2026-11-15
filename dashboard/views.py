@@ -141,7 +141,7 @@ def student_register_view(request):
     }
     form_values = {
         field: request.POST.get(field, "").strip()
-        for field in ("username", "first_name", "last_name", "email", "phone", "college_id", "department_name")
+        for field in ("username", "first_name", "last_name", "email", "phone", "college_id", "department_name", "academic_year")
     } if request.method == "POST" else {}
 
     if request.method == "POST":
@@ -155,6 +155,8 @@ def student_register_view(request):
         else:
             college = next((item for item in colleges if str(item.pk) == college_id), None)
         department_name = form_values["department_name"] or request.POST.get("department", "").strip()
+        academic_year = form_values["academic_year"]
+        valid_academic_years = {value for value, _label in ACADEMIC_YEAR_CHOICES}
         valid_department_names = departments_by_college.get(str(college.pk), []) if college else []
         has_configured_departments = college.departments.exists() if college else False
         canonical_legacy_name = legacy_departments.get(department_name.casefold())
@@ -169,6 +171,8 @@ def student_register_view(request):
             messages.error(request, "Username and password are required.")
         elif college is None:
             messages.error(request, "Choose a college from the list.")
+        elif academic_year not in valid_academic_years:
+            messages.error(request, "Choose a valid academic year.")
         elif (
             (has_configured_departments and not department_name)
             or (department_name and department_name not in valid_department_names and not (
@@ -194,6 +198,7 @@ def student_register_view(request):
                     college=college,
                     department=department_name,
                     phone=form_values["phone"],
+                    academic_year=academic_year,
                     must_change_password=generate_credentials,
                 )
                 AdminStudentRecord.objects.create(
@@ -217,6 +222,7 @@ def student_register_view(request):
         "form_values": form_values,
         "colleges": colleges,
         "departments_by_college": departments_by_college,
+        "academic_year_choices": ACADEMIC_YEAR_CHOICES,
     })
 
 
@@ -292,7 +298,7 @@ def student_colleges_view(request):
 @login_required
 def student_dashboard(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
-    college_year = profile.college.academic_year if profile.college else ""
+    college_year = profile.academic_year or (profile.college.academic_year if profile.college else "")
     valid_years = {value for value, _label in ACADEMIC_YEAR_CHOICES}
     year_choices = list(ACADEMIC_YEAR_CHOICES)
     if college_year and college_year not in valid_years:
@@ -752,7 +758,7 @@ def download_test_answer_file(request, answer_id):
 @login_required
 def results_reports_view(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
-    college_year = profile.college.academic_year if profile.college else ""
+    college_year = profile.academic_year or (profile.college.academic_year if profile.college else "")
     valid_years = {value for value, _label in ACADEMIC_YEAR_CHOICES}
     year_choices = list(ACADEMIC_YEAR_CHOICES)
     if college_year and college_year not in valid_years:

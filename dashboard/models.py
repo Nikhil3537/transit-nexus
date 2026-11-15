@@ -9,6 +9,7 @@ class StudentProfile(models.Model):
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     semester_label = models.CharField(max_length=100, default="Current Semester")
     semester_range = models.CharField(max_length=100, default="May - Aug 2025")
+    academic_year = models.CharField(max_length=20, blank=True, default="")
     department = models.CharField(max_length=120, blank=True)
     total_learning_hours = models.PositiveIntegerField(default=0)
     must_change_password = models.BooleanField(

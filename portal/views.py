@@ -1388,6 +1388,7 @@ def admin_users(request):
                         college=student_college,
                         department=student_department,
                         phone=request.POST.get("phone", "").strip(),
+                        academic_year=student_college.academic_year if student_college else "",
                     )
                     AdminStudentRecord.objects.create(
                         name=user.get_full_name() or user.username,
@@ -2154,6 +2155,7 @@ def college_students(request):
                 StudentProfile.objects.create(
                     user=user, college=profile, department=data["department"], phone=data["phone"],
                     semester_label=data["semester_label"] or profile.semester_label,
+                    academic_year=profile.academic_year,
                     must_change_password=True,
                 )
                 AdminStudentRecord.objects.create(
