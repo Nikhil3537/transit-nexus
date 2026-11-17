@@ -476,7 +476,7 @@ def _dedupe_student_rows(rows):
 
 def _college_student_accounts(profile, department_scope=""):
     """Return one live account per student identity for college-facing lists."""
-    accounts = StudentProfile.objects.select_related("user").filter(college=profile)
+    accounts = StudentProfile.objects.select_related("user").prefetch_related("assessments").filter(college=profile)
     if department_scope:
         accounts = accounts.filter(department__iexact=department_scope)
 
@@ -2136,13 +2136,18 @@ def _college_student_rows(profile, department_scope=""):
         matching_records = admin_records_by_name.get(student_name, [])
         matching_record = matching_records.pop(0) if matching_records else None
         account_keys.add(_student_identity_key(student_name, student.department or (matching_record.department if matching_record else "")))
+        assessment_scores = [
+            float(assessment.score)
+            for assessment in student.assessments.all()
+            if assessment.status == "completed" and assessment.score is not None
+        ]
         rows.append({
             "pk": f"student-profile:{student.pk}",
             "name": student.user.get_full_name() or student.user.username,
             "department": _canonical_department_name(
                 student.department or (matching_record.department if matching_record else "")
             ) or "Unassigned",
-            "avg_score": 0,
+            "avg_score": round(sum(assessment_scores) / len(assessment_scores), 1) if assessment_scores else 0,
             "attendance_pct": 0,
             "read_only": True,
             "student_account": True,
