@@ -290,13 +290,13 @@ def admin_dashboard(request):
 
     assessment_keys = set(
         CollegeAssessment.objects.filter(status="completed").values_list(
-            "college_id", "name", "department", "date"
+            "college_id", "name", "date"
         )
     )
     assessment_keys.update(
         Assessment.objects.filter(
             status="completed", student__college__isnull=False, score__isnull=False,
-        ).values_list("student__college_id", "name", "student__department", "date").distinct()
+        ).values_list("student__college_id", "name", "date").distinct()
     )
 
     context = {
