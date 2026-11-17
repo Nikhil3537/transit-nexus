@@ -2476,6 +2476,48 @@ def college_attendance(request):
         response["Content-Disposition"] = f'attachment; filename="attendance-{selected_date.isoformat()}.csv"'
         return response
 
+    if request.method == "GET" and request.GET.get("download") == "attendance_pdf":
+        from io import BytesIO
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+        attendance_by_student = {
+            record.student_id: record
+            for record in DailyAttendance.objects.filter(
+                student__in=students, date=selected_date, session_label=session_label,
+            )
+        }
+        buffer = BytesIO()
+        document = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=14 * mm, leftMargin=14 * mm)
+        styles = getSampleStyleSheet()
+        title = f"Day-wise Attendance — {selected_date.strftime('%d %b %Y')}"
+        subtitle = f"{profile.college_name} · {session_label}"
+        if selected_department:
+            subtitle += f" · {selected_department}"
+        data = [["#", "Student", "Department", "Status"]]
+        for index, student in enumerate(students, start=1):
+            record = attendance_by_student.get(student.pk)
+            data.append([
+                str(index), student.user.get_full_name() or student.user.username,
+                _canonical_department_name(student.department),
+                "Present" if record and record.is_present else "Absent",
+            ])
+        table = Table(data, colWidths=[12 * mm, 65 * mm, 75 * mm, 28 * mm], repeatRows=1)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#16274d")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+            ("PADDING", (0, 0), (-1, -1), 6),
+        ]))
+        document.build([Paragraph(title, styles["Title"]), Paragraph(subtitle, styles["Normal"]), Spacer(1, 8), table])
+        response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="attendance-{selected_date.isoformat()}.pdf"'
+        return response
+
     if request.method == "POST" and request.POST.get("action") == "mark_department_attendance":
         if not selected_department:
             messages.error(request, "Choose a department before updating attendance.")
