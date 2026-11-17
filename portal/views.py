@@ -290,13 +290,13 @@ def admin_dashboard(request):
 
     assessment_keys = set(
         CollegeAssessment.objects.filter(status="completed").values_list(
-            "college_id", "name", "date"
+            "college_id", "name"
         )
     )
     assessment_keys.update(
         Assessment.objects.filter(
             status="completed", student__college__isnull=False, score__isnull=False,
-        ).values_list("student__college_id", "name", "date").distinct()
+        ).values_list("student__college_id", "name").distinct()
     )
 
     context = {
@@ -661,13 +661,17 @@ def _department_summary_rows(profile, semester_scope=""):
         entry["attendance_present"] += float(student.attendance_pct or 0)
         entry["attendance_classes"] += 100
 
+    summary_assessment_keys = set()
     for assessment in profile.assessments.all():
         if semester_scope and not _semester_matches("", semester_scope, profile.semester_label):
             continue
         department_name = _canonical_department_name(assessment.department)
         if not department_name:
             continue
-        get_entry(department_name)["live_assessments"] += 1
+        assessment_key = (department_name, assessment.name.casefold())
+        if assessment_key not in summary_assessment_keys:
+            summary_assessment_keys.add(assessment_key)
+            get_entry(department_name)["live_assessments"] += 1
 
     rows = []
     has_live_students = any(values["live_students"] for values in summary.values())
@@ -721,7 +725,13 @@ def college_dashboard(request):
     else:
         avg_performance, avg_attendance = 0, 0
 
-    total_assessments = (profile.assessments.count() or sum(d.assessments_taken for d in departments)) if departments else 0
+    college_assessment_count = profile.assessments.values("name").distinct().count()
+    student_assessment_count = Assessment.objects.filter(
+        student__college=profile, status="completed", score__isnull=False,
+    ).values("name").distinct().count()
+    total_assessments = max(college_assessment_count, student_assessment_count)
+    if not total_assessments and departments:
+        total_assessments = sum(d.assessments_taken for d in departments)
     total_training_hours = sum(d.training_hours for d in departments)
 
     dist_buckets = {"Excellent (>=85%)": 0, "Good (70% - 84%)": 0, "Average (50% - 69%)": 0, "Needs Improvement (<50%)": 0}
