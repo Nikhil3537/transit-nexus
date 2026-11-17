@@ -628,7 +628,11 @@ def _department_summary_rows(profile, semester_scope=""):
         for attendance in student.attendance_records.all():
             entry["attendance_present"] += attendance.present
             entry["attendance_classes"] += attendance.total_classes
-        entry["live_assessments"] += student.assessments.count()
+        assessment_names = entry.setdefault("_assessment_names", set())
+        assessment_names.update(
+            assessment.name.casefold() for assessment in student.assessments.all()
+        )
+        entry["live_assessments"] = len(assessment_names)
 
     unmatched_admin_keys = set()
     for records in admin_records_by_name.values():
@@ -661,17 +665,16 @@ def _department_summary_rows(profile, semester_scope=""):
         entry["attendance_present"] += float(student.attendance_pct or 0)
         entry["attendance_classes"] += 100
 
-    summary_assessment_keys = set()
     for assessment in profile.assessments.all():
         if semester_scope and not _semester_matches("", semester_scope, profile.semester_label):
             continue
         department_name = _canonical_department_name(assessment.department)
         if not department_name:
             continue
-        assessment_key = (department_name, assessment.name.casefold())
-        if assessment_key not in summary_assessment_keys:
-            summary_assessment_keys.add(assessment_key)
-            get_entry(department_name)["live_assessments"] += 1
+        entry = get_entry(department_name)
+        assessment_names = entry.setdefault("_assessment_names", set())
+        assessment_names.add(assessment.name.casefold())
+        entry["live_assessments"] = len(assessment_names)
 
     rows = []
     has_live_students = any(values["live_students"] for values in summary.values())
