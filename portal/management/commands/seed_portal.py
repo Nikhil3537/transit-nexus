@@ -170,7 +170,7 @@ class Command(BaseCommand):
         college_profile.college_name = "ABC Engineering College"
         college_profile.location = "Bengaluru, Karnataka"
         college_profile.academic_year = "2024 - 2025"
-        college_profile.semester_label = "Even Semester"
+        college_profile.semester_label = "Odd Semester"
         college_profile.placement_eligible = 1245
         college_profile.save()
 

@@ -1493,6 +1493,7 @@ def admin_users(request):
                         college_name=college_name,
                         location=college_location or "Not specified",
                         academic_year=academic_year if academic_year in valid_years else "2024-26",
+                        semester_label="Odd Semester" if academic_year == "2025-27" else "Even Semester",
                     )
                     PartnerCollege.objects.get_or_create(name=college_name)
                 elif role == "trainer":
