@@ -270,15 +270,19 @@ def _base_context(profile):
         if college and college.semester_label
         else profile.semester_label
     ).strip()
-    semester_match = re.search(r"\b([1-9]|[1-9][0-9]+)\b", configured_semester)
-    if semester_match:
-        display_semester_label = f"Semester {semester_match.group(1)}"
-    elif configured_semester.casefold().startswith("odd"):
-        display_semester_label = "Semester 1"
-    elif configured_semester.casefold().startswith("even"):
-        display_semester_label = "Semester 2"
+    # The 2025-27 cohort is in its third semester (Odd Semester).
+    if college and college.academic_year == "2025-27":
+        display_semester_label = "Semester 3"
     else:
-        display_semester_label = configured_semester or "Semester 1"
+        semester_match = re.search(r"\b([1-9]|[1-9][0-9]+)\b", configured_semester)
+        if semester_match:
+            display_semester_label = f"Semester {semester_match.group(1)}"
+        elif configured_semester.casefold().startswith("odd"):
+            display_semester_label = "Semester 1"
+        elif configured_semester.casefold().startswith("even"):
+            display_semester_label = "Semester 2"
+        else:
+            display_semester_label = configured_semester or "Semester 1"
     return {
         "profile": profile,
         "show_college_brand_logo": bool(
