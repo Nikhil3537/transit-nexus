@@ -13,7 +13,7 @@ from django.core.validators import validate_email
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import OperationalError, connections, transaction
-from django.db.models import Q
+from django.db.models import Q, Avg
 from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
@@ -288,6 +288,17 @@ def admin_dashboard(request):
     top_programs = TopProgram.objects.all()[:5]
     syllabus_updates = SyllabusUpdate.objects.all()[:5]
 
+    assessment_keys = set(
+        CollegeAssessment.objects.filter(status="completed").values_list(
+            "college_id", "name", "department", "date"
+        )
+    )
+    assessment_keys.update(
+        Assessment.objects.filter(
+            status="completed", student__college__isnull=False, score__isnull=False,
+        ).values_list("student__college_id", "name", "student__department", "date").distinct()
+    )
+
     context = {
         "profile": profile,
         "page_title": "Platform Operations Dashboard",
@@ -297,7 +308,7 @@ def admin_dashboard(request):
         "total_colleges": len(colleges),
         "total_students": total_students,
         "active_trainings": profile.active_trainings,
-        "assessments_conducted": profile.assessments_conducted,
+        "assessments_conducted": len(assessment_keys),
         "total_pending_payment": round(total_pending_payment),
         "open_issues": open_tickets.count(),
         "colleges": colleges[:8],
@@ -584,7 +595,7 @@ def _department_summary_rows(profile, semester_scope=""):
         })
 
     live_student_keys = set()
-    for student in profile.student_accounts.all():
+    for student in profile.student_accounts.prefetch_related("enrollments", "attendance_records", "assessments").all():
         if not _semester_matches(student.semester_label, semester_scope, profile.semester_label):
             continue
         student_name = (student.user.get_full_name() or student.user.username).strip().casefold()
@@ -603,7 +614,14 @@ def _department_summary_rows(profile, semester_scope=""):
         entry["live_students"] += 1
         entry["live_training_hours"] += int(student.total_learning_hours or 0)
         enrollments = list(student.enrollments.all())
-        if enrollments:
+        assessment_scores = [
+            float(assessment.score)
+            for assessment in student.assessments.all()
+            if assessment.status == "completed" and assessment.score is not None
+        ]
+        if assessment_scores:
+            entry["performance_values"].extend(assessment_scores)
+        elif enrollments:
             entry["performance_values"].extend(float(enrollment.avg_score or 0) for enrollment in enrollments)
         elif matching_record:
             entry["performance_values"].append(float(matching_record.performance_pct or 0))
@@ -1194,6 +1212,29 @@ def admin_assessments(request):
     return render(request, "portal/admin_assessments.html", ctx)
 
 
+def _sync_college_assessment_summary(student, assessment_name, department, subject, result_date):
+    """Mirror a student result into the college/platform assessment summary."""
+    del subject  # CollegeAssessment stores one average per assessment, not per subject.
+    department_name = _canonical_department_name(department) or department.strip()
+    results = Assessment.objects.filter(
+        student__college=student.college,
+        student__department=student.department,
+        name=assessment_name,
+        date=result_date,
+    )
+    average = results.filter(score__isnull=False).aggregate(avg_score=Avg("score"))["avg_score"]
+    CollegeAssessment.objects.update_or_create(
+        college=student.college,
+        name=assessment_name,
+        department=department_name,
+        date=result_date,
+        defaults={
+            "avg_score": average,
+            "status": "completed" if results.filter(status="completed").exists() else "scheduled",
+        },
+    )
+
+
 def _import_testmoz_results(request, uploaded):
     """Import Testmoz scores into student dashboards and trainer summaries."""
     required = {"student_id", "college_name", "department", "semester", "test_name", "subject", "score", "date"}
@@ -1263,6 +1304,9 @@ def _import_testmoz_results(request, uploaded):
                 Assessment.objects.update_or_create(
                     student=student, name=row["test_name"], subject=row["subject"], date=result_date,
                     defaults={"score": score, "status": status},
+                )
+                _sync_college_assessment_summary(
+                    student, row["test_name"], row["department"], row["subject"], result_date,
                 )
                 if test.trainer_id:
                     trainer_scores.setdefault((test.trainer_id, test.title, result_date), []).append(score)
@@ -1965,9 +2009,12 @@ def _import_student_dashboard_rows(request, dataset, config, uploaded):
                     )
             else:
                 for student, row_date, row, score, status in prepared:
-                    student.assessments.create(
-                        name=row["assessment_name"], subject=row["subject"], score=score,
-                        date=row_date, status=status,
+                    Assessment.objects.update_or_create(
+                        student=student, name=row["assessment_name"], subject=row["subject"], date=row_date,
+                        defaults={"score": score, "status": status},
+                    )
+                    _sync_college_assessment_summary(
+                        student, row["assessment_name"], row["department"], row["subject"], row_date,
                     )
         messages.success(request, f"Uploaded {len(prepared)} student {dataset.replace('_', ' ')} row(s) for {profile.college_name}.")
     except (UnicodeDecodeError, csv.Error, ValueError, KeyError, ImportError) as error:
