@@ -325,17 +325,24 @@ def student_dashboard(request):
     colleges = [profile.college] if profile.college else []
     enrollments = profile.enrollments.select_related("course").all() if has_year_data else profile.enrollments.none()
     attendance_records = list(profile.attendance_records.all()) if has_year_data else []
-    daily_attendance = list(profile.daily_attendance.all()[:12]) if has_year_data else []
+    daily_attendance_records = list(profile.daily_attendance.all()) if has_year_data else []
+    daily_attendance = daily_attendance_records[:12]
     assessments = list(profile.assessments.all()) if has_year_data else []
     strengths = profile.strengths.all() if has_year_data else profile.strengths.none()
     improvements = profile.improvement_areas.all() if has_year_data else profile.improvement_areas.none()
     activities = profile.activities.all()[:6] if has_year_data else profile.activities.none()
 
     # ---- Attendance summary ----
-    total_classes = sum(a.total_classes for a in attendance_records)
-    total_present = sum(a.present for a in attendance_records)
-    total_absent = sum(a.absent for a in attendance_records)
-    total_late = sum(a.late for a in attendance_records)
+    if daily_attendance_records:
+        total_classes = len(daily_attendance_records)
+        total_present = sum(record.is_present for record in daily_attendance_records)
+        total_absent = total_classes - total_present
+        total_late = 0
+    else:
+        total_classes = sum(a.total_classes for a in attendance_records)
+        total_present = sum(a.present for a in attendance_records)
+        total_absent = sum(a.absent for a in attendance_records)
+        total_late = sum(a.late for a in attendance_records)
     overall_attendance = round((total_present / total_classes) * 100) if total_classes else 0
 
     attendance_trend = {
@@ -516,10 +523,17 @@ def attendance_view(request):
         student=profile, date=today, session_label="Regular Session",
     ).first()
     records = list(profile.attendance_records.all())
-    total_classes = sum(a.total_classes for a in records)
-    total_present = sum(a.present for a in records)
-    total_absent = sum(a.absent for a in records)
-    total_late = sum(a.late for a in records)
+    daily_records = list(profile.daily_attendance.all())
+    if daily_records:
+        total_classes = len(daily_records)
+        total_present = sum(record.is_present for record in daily_records)
+        total_absent = total_classes - total_present
+        total_late = 0
+    else:
+        total_classes = sum(a.total_classes for a in records)
+        total_present = sum(a.present for a in records)
+        total_absent = sum(a.absent for a in records)
+        total_late = sum(a.late for a in records)
     overall_attendance = round((total_present / total_classes) * 100) if total_classes else 0
 
     trend = {

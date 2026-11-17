@@ -595,7 +595,9 @@ def _department_summary_rows(profile, semester_scope=""):
         })
 
     live_student_keys = set()
-    for student in profile.student_accounts.prefetch_related("enrollments", "attendance_records", "assessments").all():
+    for student in profile.student_accounts.prefetch_related(
+        "enrollments", "attendance_records", "daily_attendance", "assessments"
+    ).all():
         if not _semester_matches(student.semester_label, semester_scope, profile.semester_label):
             continue
         student_name = (student.user.get_full_name() or student.user.username).strip().casefold()
@@ -625,9 +627,14 @@ def _department_summary_rows(profile, semester_scope=""):
             entry["performance_values"].extend(float(enrollment.avg_score or 0) for enrollment in enrollments)
         elif matching_record:
             entry["performance_values"].append(float(matching_record.performance_pct or 0))
-        for attendance in student.attendance_records.all():
-            entry["attendance_present"] += attendance.present
-            entry["attendance_classes"] += attendance.total_classes
+        daily_attendance = list(student.daily_attendance.all())
+        if daily_attendance:
+            entry["attendance_present"] += sum(record.is_present for record in daily_attendance)
+            entry["attendance_classes"] += len(daily_attendance)
+        else:
+            for attendance in student.attendance_records.all():
+                entry["attendance_present"] += attendance.present
+                entry["attendance_classes"] += attendance.total_classes
         assessment_names = entry.setdefault("_assessment_names", set())
         assessment_names.update(
             assessment.name.casefold() for assessment in student.assessments.all()
@@ -961,7 +968,7 @@ def admin_college_detail(request, college_id):
     partner = PartnerCollege.objects.filter(name__iexact=college.college_name).first()
     manual_students = college.students.all()
     student_accounts = college.student_accounts.select_related("user").prefetch_related(
-        "enrollments", "attendance_records", "assessments"
+        "enrollments", "attendance_records", "daily_attendance", "assessments"
     )
     imported_student_records = _admin_student_records_by_name(college)
     students = []
@@ -985,6 +992,7 @@ def admin_college_detail(request, college_id):
             if assessment.status == "completed" and assessment.score is not None
         ]
         attendance_rows = list(account.attendance_records.all())
+        daily_attendance = list(account.daily_attendance.all())
         semester = account.semester_label
         if not semester or semester == "Current Semester":
             semester = college.semester_label
@@ -1001,8 +1009,11 @@ def admin_college_detail(request, college_id):
                 if enrollments else (imported_record.performance_pct if imported_record else None))
             ),
             "attendance_pct": (
-                round(sum(item.percentage for item in attendance_rows) / len(attendance_rows), 1)
-                if attendance_rows else None
+                round(sum(record.is_present for record in daily_attendance) / len(daily_attendance) * 100, 1)
+                if daily_attendance else (
+                    round(sum(item.percentage for item in attendance_rows) / len(attendance_rows), 1)
+                    if attendance_rows else None
+                )
             ),
             "is_account": True,
         })
@@ -1136,7 +1147,7 @@ def admin_students(request):
     for college in colleges:
         records_by_name = _admin_student_records_by_name(college)
         for student in college.student_accounts.select_related("user").prefetch_related(
-            "enrollments", "attendance_records", "assessments"
+            "enrollments", "attendance_records", "daily_attendance", "assessments"
         ):
             name = student.user.get_full_name() or student.user.username
             matching_records = records_by_name.get(name.strip().casefold(), [])
@@ -1148,6 +1159,7 @@ def admin_students(request):
                 if assessment.status == "completed" and assessment.score is not None
             ]
             attendance_rows = list(student.attendance_records.all())
+            daily_attendance = list(student.daily_attendance.all())
             semester = student.semester_label
             if not semester or semester == "Current Semester":
                 semester = college.semester_label
@@ -1166,8 +1178,11 @@ def admin_students(request):
                     if enrollments else (matching_record.performance_pct if matching_record else None))
                 ),
                 "attendance_pct": (
-                    round(sum(row.percentage for row in attendance_rows) / len(attendance_rows), 1)
-                    if attendance_rows else None
+                    round(sum(record.is_present for record in daily_attendance) / len(daily_attendance) * 100, 1)
+                    if daily_attendance else (
+                        round(sum(row.percentage for row in attendance_rows) / len(attendance_rows), 1)
+                        if attendance_rows else None
+                    )
                 ),
                 "status": "Active" if student.user.is_active else "Pending",
                 "has_account": True,
