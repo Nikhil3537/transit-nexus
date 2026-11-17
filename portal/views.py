@@ -960,7 +960,9 @@ def admin_college_detail(request, college_id):
 
     partner = PartnerCollege.objects.filter(name__iexact=college.college_name).first()
     manual_students = college.students.all()
-    student_accounts = college.student_accounts.select_related("user").prefetch_related("enrollments", "attendance_records")
+    student_accounts = college.student_accounts.select_related("user").prefetch_related(
+        "enrollments", "attendance_records", "assessments"
+    )
     imported_student_records = _admin_student_records_by_name(college)
     students = []
     for student in manual_students:
@@ -977,6 +979,11 @@ def admin_college_detail(request, college_id):
         matching_records = imported_student_records.get(display_name.strip().casefold(), [])
         imported_record = matching_records.pop(0) if matching_records else None
         enrollments = list(account.enrollments.all())
+        assessment_scores = [
+            float(assessment.score)
+            for assessment in account.assessments.all()
+            if assessment.status == "completed" and assessment.score is not None
+        ]
         attendance_rows = list(account.attendance_records.all())
         semester = account.semester_label
         if not semester or semester == "Current Semester":
@@ -988,8 +995,10 @@ def admin_college_detail(request, college_id):
             ) or "Unassigned",
             "semester": semester or "Unassigned",
             "avg_score": (
+                round(sum(assessment_scores) / len(assessment_scores), 1)
+                if assessment_scores else (
                 round(sum(float(item.avg_score or 0) for item in enrollments) / len(enrollments), 1)
-                if enrollments else (imported_record.performance_pct if imported_record else None)
+                if enrollments else (imported_record.performance_pct if imported_record else None))
             ),
             "attendance_pct": (
                 round(sum(item.percentage for item in attendance_rows) / len(attendance_rows), 1)
@@ -1126,11 +1135,18 @@ def admin_students(request):
     colleges = CollegeProfile.objects.order_by("college_name")
     for college in colleges:
         records_by_name = _admin_student_records_by_name(college)
-        for student in college.student_accounts.select_related("user").prefetch_related("enrollments", "attendance_records"):
+        for student in college.student_accounts.select_related("user").prefetch_related(
+            "enrollments", "attendance_records", "assessments"
+        ):
             name = student.user.get_full_name() or student.user.username
             matching_records = records_by_name.get(name.strip().casefold(), [])
             matching_record = matching_records.pop(0) if matching_records else None
             enrollments = list(student.enrollments.all())
+            assessment_scores = [
+                float(assessment.score)
+                for assessment in student.assessments.all()
+                if assessment.status == "completed" and assessment.score is not None
+            ]
             attendance_rows = list(student.attendance_records.all())
             semester = student.semester_label
             if not semester or semester == "Current Semester":
@@ -1144,8 +1160,10 @@ def admin_students(request):
                 ) or "Unassigned",
                 "semester": semester or "Unassigned",
                 "performance_pct": (
+                    round(sum(assessment_scores) / len(assessment_scores), 1)
+                    if assessment_scores else (
                     round(sum(float(e.avg_score or 0) for e in enrollments) / len(enrollments), 1)
-                    if enrollments else (matching_record.performance_pct if matching_record else None)
+                    if enrollments else (matching_record.performance_pct if matching_record else None))
                 ),
                 "attendance_pct": (
                     round(sum(row.percentage for row in attendance_rows) / len(attendance_rows), 1)
