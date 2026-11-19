@@ -1,0 +1,24 @@
+databases:
+  - name: transit-nexus-db
+    plan: free
+    databaseName: transit_nexus
+    user: transit_nexus
+
+services:
+  - type: web
+    name: transit-nexus
+    runtime: python
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: python -m gunicorn transit_nexus.wsgi:application --config gunicorn.conf.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: transit-nexus-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: WEB_CONCURRENCY
+        value: "2"
