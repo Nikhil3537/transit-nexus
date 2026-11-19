@@ -752,6 +752,22 @@ class PlatformCollegeWorkspaceTests(TestCase):
             self.assertContains(response, visible_record)
         self.assertNotContains(response, "South Student")
 
+    def test_college_workspace_includes_completed_student_results_without_summary_rows(self):
+        student_user = User.objects.create_user(username="assessment-student", password="test-pass")
+        student = StudentProfile.objects.create(user=student_user, college=self.college, department="CSE")
+        CollegeAssessment.objects.create(
+            college=self.college, name="Summary Assessment", department="CSE", date="2026-10-15",
+        )
+        Assessment.objects.create(
+            student=student, name="Imported Assessment", subject="Aptitude", score=84,
+            date="2026-10-16", status="completed",
+        )
+
+        response = self.client.get(reverse("admin_college_detail", args=[self.college.pk]))
+
+        self.assertEqual(response.context["total_assessments"], 2)
+        self.assertContains(response, "Imported Assessment")
+
     def test_platform_admin_can_delete_college_workspace_and_name_based_records(self):
         PartnerCollege.objects.create(name=self.college.college_name)
         CollegeStudent.objects.create(college=self.college, name="North Student", department="CSE")

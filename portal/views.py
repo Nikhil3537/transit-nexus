@@ -412,6 +412,49 @@ def _canonical_department_name(value):
     return raw_name
 
 
+def _college_assessment_rows(college):
+    """Return each summary and completed student-result assessment once."""
+    rows_by_key = {}
+    for assessment in college.assessments.all():
+        key = (
+            assessment.name.strip().casefold(),
+            _canonical_department_name(assessment.department).casefold(),
+            assessment.date,
+        )
+        rows_by_key[key] = {
+            "name": assessment.name,
+            "department": assessment.department,
+            "date": assessment.date,
+            "avg_score": assessment.avg_score,
+            "status_label": assessment.get_status_display(),
+        }
+
+    result_groups = {}
+    completed_results = Assessment.objects.filter(
+        student__college=college, status="completed", score__isnull=False,
+    ).values("name", "student__department", "date", "score")
+    for result in completed_results:
+        department = _canonical_department_name(result["student__department"])
+        key = (result["name"].strip().casefold(), department.casefold(), result["date"])
+        result_groups.setdefault(key, {
+            "scores": [], "name": result["name"], "department": department,
+            "date": result["date"],
+        })["scores"].append(float(result["score"]))
+
+    for key, result in result_groups.items():
+        if key not in rows_by_key:
+            scores = result["scores"]
+            rows_by_key[key] = {
+                "name": result["name"],
+                "department": result["department"],
+                "date": result["date"],
+                "avg_score": round(sum(scores) / len(scores), 1),
+                "status_label": "Completed",
+            }
+
+    return sorted(rows_by_key.values(), key=lambda row: row["date"], reverse=True)
+
+
 def _department_sort_key(name):
     normalized = _canonical_department_name(name)
     try:
@@ -1054,7 +1097,7 @@ def admin_college_detail(request, college_id):
             })
         student_groups[-1]["students"].append(student)
     programs = college.programs.all()
-    assessments = college.assessments.all()
+    assessments = _college_assessment_rows(college)
     departments = college.departments.all()
     placements = college.placements.all()
     faculty = college.faculty.all()
@@ -1076,7 +1119,7 @@ def admin_college_detail(request, college_id):
         payment_form=CollegeInvoiceForm(), placement_form=PlacementRecordForm(),
         syllabus_form=SyllabusCoverageForm(), report_form=CollegeQuickReportForm(),
         total_students=len(students), total_programs=programs.count(),
-        total_assessments=assessments.count(), total_faculty=faculty.count(),
+        total_assessments=len(assessments), total_faculty=faculty.count(),
         total_placed=sum(item.students_placed for item in placements),
         total_pending_payment=total_pending,
     )
