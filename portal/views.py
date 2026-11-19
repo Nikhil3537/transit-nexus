@@ -123,6 +123,11 @@ def _spreadsheet_rows(uploaded):
     return reader.fieldnames or [], list(reader)
 
 
+def _cell_text(value):
+    """Normalize CSV and Excel cells without losing valid numeric zeroes."""
+    return "" if value is None else str(value).strip()
+
+
 def _nav_context(nav_list, active_label, role_title, role_tagline):
     return {
         "nav_items": [
@@ -1295,7 +1300,7 @@ def _import_testmoz_results(request, uploaded):
         errors = []
         seen = set()
         for row_number, raw_row in enumerate(spreadsheet_rows, start=2):
-            row = {(key or "").strip().lower(): (value or "").strip() for key, value in raw_row.items() if key is not None}
+            row = {(key or "").strip().lower(): _cell_text(value) for key, value in raw_row.items() if key is not None}
             if not any(row.values()):
                 continue
             student = StudentProfile.objects.select_related("user", "college").filter(
@@ -1674,7 +1679,7 @@ def bulk_import(request):
                     }
                     for row_number, raw_row in enumerate(spreadsheet_rows, start=2):
                         row = {
-                            (key or "").strip().lower(): (value or "").strip()
+                            (key or "").strip().lower(): _cell_text(value)
                             for key, value in raw_row.items()
                             if key is not None
                         }
@@ -1986,7 +1991,7 @@ def _import_student_dashboard_rows(request, dataset, config, uploaded):
         seen_keys = set()
         for row_number, raw_row in enumerate(spreadsheet_rows, start=2):
             row = {
-                (key or "").strip().lower(): (value or "").strip()
+                (key or "").strip().lower(): _cell_text(value)
                 for key, value in raw_row.items() if key is not None
             }
             if not any(row.values()):
@@ -2108,7 +2113,7 @@ def college_csv_upload(request, dataset):
         seen_keys = set()
         for row_number, raw_row in enumerate(spreadsheet_rows, start=2):
             row = {
-                (key or "").strip().lower(): (value or "").strip()
+                (key or "").strip().lower(): _cell_text(value)
                 for key, value in raw_row.items()
                 if key is not None
             }
