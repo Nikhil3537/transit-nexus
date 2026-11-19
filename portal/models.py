@@ -470,7 +470,9 @@ class CollegeAssessment(models.Model):
 
     college = models.ForeignKey(CollegeProfile, on_delete=models.CASCADE, related_name="assessments")
     name = models.CharField(max_length=150)
-    department = models.CharField(max_length=20)
+    # Imported programme names (for example, "MBA (Master of Business
+    # Administration)") are longer than the legacy 20-character limit.
+    department = models.CharField(max_length=150)
     date = models.DateField()
     avg_score = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="completed")

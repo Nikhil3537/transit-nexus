@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import logging
 import time
 import secrets
 from datetime import date, datetime
@@ -42,6 +43,9 @@ from .forms import (
     TrainingFeedbackForm,
 )
 from dashboard.models import Assessment, DailyAttendance, StudentProfile
+
+
+logger = logging.getLogger(__name__)
 
 
 ADMIN_NAV = [
@@ -2069,8 +2073,11 @@ def _import_student_dashboard_rows(request, dataset, config, uploaded):
                         student, row["assessment_name"], row["department"], row["subject"], row_date,
                     )
         messages.success(request, f"Uploaded {len(prepared)} student {dataset.replace('_', ' ')} row(s) for {profile.college_name}.")
-    except (UnicodeDecodeError, csv.Error, ValueError, KeyError, ImportError) as error:
-        messages.error(request, str(error) or "Could not read that file. Use a valid CSV or .xlsx Excel file.")
+    except Exception as error:
+        # Keep the college user on the assessments page and retain the
+        # traceback in the service log for an administrator to investigate.
+        logger.exception("Student-results import failed for college %s", profile.college_name)
+        messages.error(request, str(error) or "Could not import that file. Please contact the administrator.")
     return redirect(COLLEGE_UPLOAD_PAGE[dataset])
 
 
