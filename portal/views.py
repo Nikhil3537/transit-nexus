@@ -1773,8 +1773,13 @@ def bulk_import(request):
                             errors.append(f"Row {row_number}: username '{username}' already exists.")
                         else:
                             seen_usernames.add(username.casefold())
-                        if role != "students" and not row.get("password"):
+                        password = row.get("password", "")
+                        if role != "students" and not password:
                             errors.append(f"Row {row_number}: password is required.")
+                        elif role == "students" and password and not 5 <= len(password) <= 6:
+                            errors.append(
+                                f"Row {row_number}: student temporary passwords must be 5 or 6 characters."
+                            )
                         for field in required - {"username", "password"}:
                             if not row.get(field):
                                 errors.append(f"Row {row_number}: {field} is required.")
@@ -1797,7 +1802,9 @@ def bulk_import(request):
                                 imported_credentials = []
                                 with transaction.atomic():
                                     for _, row in rows:
-                                        temporary_password = row.get("password") or secrets.token_urlsafe(12)
+                                        # Student credentials are downloaded after import, so keep
+                                        # generated temporary passwords short and easy to enter.
+                                        temporary_password = row.get("password") or secrets.token_hex(3)
                                         user = User.objects.create_user(
                                             username=row["username"],
                                             password=temporary_password,

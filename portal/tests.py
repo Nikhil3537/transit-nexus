@@ -81,7 +81,7 @@ class BulkImportTests(TestCase):
         college_user = User.objects.create_user(username="bulk-college-admin", password="test-pass")
         CollegeProfile.objects.create(user=college_user, college_name="North College")
         cases = [
-            ("students", "username,password,first_name,last_name,email,college_name,department\nstudent-1,pass,Sam,Student,sam@example.com,North College,CSE\n"),
+            ("students", "username,password,first_name,last_name,email,college_name,department\nstudent-1,pass12,Sam,Student,sam@example.com,North College,CSE\n"),
             ("colleges", "username,password,first_name,last_name,email,college_name,location\ncollege-1,pass,Casey,College,casey@example.com,North College,Delhi\n"),
             ("trainers", "username,password,first_name,last_name,email\ntrainer-1,pass,Taylor,Trainer,taylor@example.com\n"),
             ("companies", "username,password,first_name,last_name,email,company_name\ncompany-1,pass,Alex,Company,alex@example.com,Example Ltd\n"),
@@ -120,6 +120,7 @@ class BulkImportTests(TestCase):
         user = User.objects.get(username=credentials["student_id"])
         self.assertTrue(user.is_active)
         self.assertTrue(user.check_password(credentials["temporary_password"]))
+        self.assertEqual(len(credentials["temporary_password"]), 6)
         self.assertTrue(user.profile.must_change_password)
         self.assertEqual(user.profile.college.college_name, "North College")
 
@@ -135,6 +136,22 @@ class BulkImportTests(TestCase):
             "semester": "Even Semester",
         })
         self.assertRedirects(login_response, reverse("password_change"))
+
+    def test_student_import_rejects_provided_passwords_outside_five_to_six_characters(self):
+        college_user = User.objects.create_user(username="password-rule-college", password="test-pass")
+        CollegeProfile.objects.create(user=college_user, college_name="North College")
+
+        for password in ("pass", "too-long"):
+            with self.subTest(password=password):
+                response = self.upload(
+                    "students",
+                    "username,password,first_name,last_name,email,college_name,department\n"
+                    f"student-{len(password)},{password},Sam,Student,sam@example.com,North College,CSE\n",
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "student temporary passwords must be 5 or 6 characters")
+                self.assertFalse(User.objects.filter(username=f"student-{len(password)}").exists())
 
     def test_invalid_file_does_not_partially_import(self):
         college_user = User.objects.create_user(username="bulk-invalid-college-admin", password="test-pass")

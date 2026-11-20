@@ -26,7 +26,7 @@
 </section>
 <section class="panel">
   <div class="panel-head"><h3>CSV Templates</h3><span class="muted">Use one file per account type</span></div>
-  <p>Student rows need a first name, email, college name, and department. Leave username and password blank to generate student sign-in credentials; the import downloads them once as a CSV. Students must change the temporary password at first sign-in. Other account types still need a username and password.</p>
+  <p>Student rows need a first name, email, college name, and department. Leave username and password blank to generate student sign-in credentials; generated temporary passwords are 6 characters, and provided student passwords must be 5 or 6 characters. The import downloads credentials once as a CSV. Students must change the temporary password at first sign-in. Other account types still need a username and password.</p>
   <div class="form-grid">
     {% for role in template_roles %}
     <div><a class="btn btn-secondary" href="{% url 'bulk_import' %}?template={{ role }}"><i class="fa-solid fa-download"></i> {{ role|title }} template</a></div>
