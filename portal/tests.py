@@ -662,6 +662,26 @@ class PlatformCollegeWorkspaceTests(TestCase):
         self.assertContains(listing, reverse("admin_college_detail", args=[self.college.pk]))
         self.assertNotContains(listing, "Partner Colleges")
 
+    def test_role_accounts_do_not_duplicate_a_college_in_admin_lists(self):
+        for role in ("hod", "placement"):
+            role_user = User.objects.create_user(
+                username=f"north-{role}", password="test-pass",
+            )
+            CollegeProfile.objects.create(
+                user=role_user,
+                workspace=self.college,
+                account_role=role,
+                college_name=self.college.college_name,
+            )
+
+        dashboard = self.client.get(reverse("admin_dashboard"))
+        listing = self.client.get(reverse("admin_colleges"))
+
+        self.assertEqual(dashboard.context["total_colleges"], 1)
+        self.assertEqual(len(dashboard.context["colleges"]), 1)
+        self.assertEqual(len(listing.context["colleges"]), 1)
+        self.assertEqual(listing.context["colleges"][0]["profile"], self.college)
+
     def test_college_index_counts_uploaded_student_accounts(self):
         student_user = User.objects.create_user(username="index-student", password="test-pass")
         StudentProfile.objects.create(user=student_user, college=self.college)

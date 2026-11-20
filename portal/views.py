@@ -249,7 +249,10 @@ def admin_dashboard(request):
     partner_by_name = {college.name.casefold(): college for college in PartnerCollege.objects.all()}
     colleges = []
     for college in CollegeProfile.objects.select_related("user").filter(
-        user__admin_profile__isnull=True, user__is_staff=False,
+        user__admin_profile__isnull=True,
+        user__is_staff=False,
+        workspace__isnull=True,
+        account_role="college_admin",
     ):
         if selected_academic_year and college.academic_year != selected_academic_year:
             continue
@@ -927,7 +930,10 @@ def admin_colleges(request):
     partner_by_name = {college.name.casefold(): college for college in PartnerCollege.objects.all()}
     colleges = []
     profiles = CollegeProfile.objects.select_related("user").filter(
-        user__admin_profile__isnull=True, user__is_staff=False,
+        user__admin_profile__isnull=True,
+        user__is_staff=False,
+        workspace__isnull=True,
+        account_role="college_admin",
     )
     for college in profiles:
         partner = partner_by_name.get(college.college_name.casefold())
@@ -951,7 +957,10 @@ def admin_college_detail(request, college_id):
     admin_profile, _ = AdminProfile.objects.get_or_create(user=request.user)
     college = get_object_or_404(
         CollegeProfile.objects.select_related("user").filter(
-            user__admin_profile__isnull=True, user__is_staff=False,
+            user__admin_profile__isnull=True,
+            user__is_staff=False,
+            workspace__isnull=True,
+            account_role="college_admin",
         ),
         pk=college_id,
     )
