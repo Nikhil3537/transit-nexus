@@ -669,7 +669,7 @@ def _department_summary_rows(profile, semester_scope=""):
         entry["live_training_hours"] += int(student.total_learning_hours or 0)
         enrollments = list(student.enrollments.all())
         assessment_scores = [
-            float(assessment.score)
+            assessment.score_percentage
             for assessment in student.assessments.all()
             if assessment.status == "completed" and assessment.score is not None
         ]
@@ -1039,7 +1039,7 @@ def admin_college_detail(request, college_id):
         imported_record = matching_records.pop(0) if matching_records else None
         enrollments = list(account.enrollments.all())
         assessment_scores = [
-            float(assessment.score)
+            assessment.score_percentage
             for assessment in account.assessments.all()
             if assessment.status == "completed" and assessment.score is not None
         ]
@@ -1206,7 +1206,7 @@ def admin_students(request):
             matching_record = matching_records.pop(0) if matching_records else None
             enrollments = list(student.enrollments.all())
             assessment_scores = [
-                float(assessment.score)
+                assessment.score_percentage
                 for assessment in student.assessments.all()
                 if assessment.status == "completed" and assessment.score is not None
             ]
@@ -1320,7 +1320,8 @@ def _sync_college_assessment_summary(student, assessment_name, department, subje
         name=assessment_name,
         date=result_date,
     )
-    average = results.filter(score__isnull=False).aggregate(avg_score=Avg("score"))["avg_score"]
+    scored_results = [result.score_percentage for result in results.filter(score__isnull=False)]
+    average = round(sum(scored_results) / len(scored_results), 1) if scored_results else None
     CollegeAssessment.objects.update_or_create(
         college=student.college,
         name=assessment_name,
@@ -1372,11 +1373,12 @@ def _import_testmoz_results(request, uploaded):
                 continue
             try:
                 score = float(row["score"])
-                if not 0 <= score <= 100:
+                total_marks = int(row.get("total_marks", "100") or 100)
+                if not 0 <= score <= total_marks or total_marks <= 0:
                     raise ValueError
                 result_date = datetime.strptime(row["date"][:10], "%Y-%m-%d").date()
             except ValueError:
-                errors.append(f"Row {row_number}: score must be 0-100 and date must use YYYY-MM-DD.")
+                errors.append(f"Row {row_number}: score must be between 0 and total_marks, and date must use YYYY-MM-DD.")
                 continue
             status = row.get("status", "completed").casefold() or "completed"
             if status not in {"completed", "pending"}:
@@ -1386,7 +1388,7 @@ def _import_testmoz_results(request, uploaded):
             if key in seen:
                 errors.append(f"Row {row_number}: duplicate student/test result.")
             seen.add(key)
-            prepared.append((student, test, row, score, result_date, status))
+            prepared.append((student, test, row, score, total_marks, result_date, status))
 
         if errors:
             for error in errors[:30]:
@@ -1398,16 +1400,16 @@ def _import_testmoz_results(request, uploaded):
 
         with transaction.atomic():
             trainer_scores = {}
-            for student, test, row, score, result_date, status in prepared:
+            for student, test, row, score, total_marks, result_date, status in prepared:
                 Assessment.objects.update_or_create(
                     student=student, name=row["test_name"], subject=row["subject"], date=result_date,
-                    defaults={"score": score, "status": status},
+                    defaults={"score": score, "total_marks": total_marks, "status": status},
                 )
                 _sync_college_assessment_summary(
                     student, row["test_name"], row["department"], row["subject"], result_date,
                 )
                 if test.trainer_id:
-                    trainer_scores.setdefault((test.trainer_id, test.title, result_date), []).append(score)
+                    trainer_scores.setdefault((test.trainer_id, test.title, result_date), []).append(score / total_marks * 100)
             for (trainer_id, test_name, result_date), scores in trainer_scores.items():
                 TrainerAssessment.objects.update_or_create(
                     trainer_id=trainer_id, name=test_name, date=result_date,
@@ -1950,7 +1952,7 @@ COLLEGE_CSV_IMPORTS = {
     },
     "student_results": {
         "filename": "student_results_template.csv",
-        "headers": ["student_id", "department", "semester", "assessment_name", "subject", "score", "date", "status"],
+        "headers": ["student_id", "department", "semester", "assessment_name", "subject", "score", "total_marks", "date", "status"],
         "required": {"student_id", "department", "semester", "assessment_name", "subject", "date"},
         "student_dashboard": True,
     },
@@ -2081,14 +2083,16 @@ def _import_student_dashboard_rows(request, dataset, config, uploaded):
                     errors.append(f"Row {row_number}: result status must be Completed or Pending.")
                     continue
                 score = row.get("score", "")
+                total_marks = row.get("total_marks", "100") or "100"
                 try:
                     score_value = float(score) if score else None
-                    if score_value is not None and not 0 <= score_value <= 100:
+                    total_marks_value = int(total_marks)
+                    if total_marks_value <= 0 or (score_value is not None and not 0 <= score_value <= total_marks_value):
                         raise ValueError
                 except ValueError:
-                    errors.append(f"Row {row_number}: score must be between 0 and 100.")
+                    errors.append(f"Row {row_number}: score must be between 0 and total marks.")
                     continue
-                prepared.append((student, row_date, row, score_value, status))
+                prepared.append((student, row_date, row, score_value, total_marks_value, status))
 
         if len(prepared) > 10000:
             errors.append("A single upload can contain at most 10,000 rows.")
@@ -2107,10 +2111,10 @@ def _import_student_dashboard_rows(request, dataset, config, uploaded):
                         defaults={"is_present": is_present},
                     )
             else:
-                for student, row_date, row, score, status in prepared:
+                for student, row_date, row, score, total_marks, status in prepared:
                     Assessment.objects.update_or_create(
                         student=student, name=row["assessment_name"], subject=row["subject"], date=row_date,
-                        defaults={"score": score, "status": status},
+                        defaults={"score": score, "total_marks": total_marks, "status": status},
                     )
                     _sync_college_assessment_summary(
                         student, row["assessment_name"], row["department"], row["subject"], row_date,
@@ -2239,7 +2243,7 @@ def _college_student_rows(profile, department_scope=""):
         matching_record = matching_records.pop(0) if matching_records else None
         account_keys.add(_student_identity_key(student_name, student.department or (matching_record.department if matching_record else "")))
         assessment_scores = [
-            float(assessment.score)
+            assessment.score_percentage
             for assessment in student.assessments.all()
             if assessment.status == "completed" and assessment.score is not None
         ]

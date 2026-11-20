@@ -50,20 +50,22 @@ class TestmozStudentResultTests(TestCase):
         self.client.force_login(admin)
         csv_file = SimpleUploadedFile(
             "testmoz-results.csv",
-            b"student_id,college_name,department,semester,test_name,subject,score,date,status\n"
-            b"nikhil,Testmoz College,CSE,Odd Semester,Python Testmoz Test,Python,87.5,2026-11-09,completed\n",
+            b"student_id,college_name,department,semester,test_name,subject,score,total_marks,date,status\n"
+            b"nikhil,Testmoz College,CSE,Odd Semester,Python Testmoz Test,Python,35,40,2026-11-09,completed\n",
             content_type="text/csv",
         )
         response = self.client.post(reverse("admin_assessments"), {"file": csv_file})
         self.assertRedirects(response, reverse("admin_assessments"))
-        self.assertTrue(Assessment.objects.filter(student__user__username="nikhil", score=87.5).exists())
+        self.assertTrue(Assessment.objects.filter(
+            student__user__username="nikhil", score=35, total_marks=40,
+        ).exists())
         self.client.force_login(student_user)
         dashboard = self.client.get(reverse("dashboard"))
         reports = self.client.get(reverse("results_reports"))
         self.assertContains(dashboard, "Python Testmoz Test")
-        self.assertContains(dashboard, "87.5")
+        self.assertContains(dashboard, "35.0 / 40")
         self.assertContains(reports, "Python Testmoz Test")
-        self.assertContains(reports, "87.5")
+        self.assertContains(reports, "35.0 / 40")
 
 
 class BulkImportTests(TestCase):

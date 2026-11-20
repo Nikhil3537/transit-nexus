@@ -30,7 +30,7 @@
       <tr>
         <td>{{ a.name }}</td>
         <td>{{ a.subject }}</td>
-        <td>{% if a.score is not None %}{{ a.score }}%{% else %}&mdash;{% endif %}</td>
+        <td>{% if a.score is not None %}{{ a.score }} / {{ a.total_marks }}{% else %}&mdash;{% endif %}</td>
         <td>{{ a.date|date:"d M Y" }}</td>
         <td><span class="tag tag-{{ a.performance_label|slugify }}">{{ a.performance_label }}</span></td>
       </tr>

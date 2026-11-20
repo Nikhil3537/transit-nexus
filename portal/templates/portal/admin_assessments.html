@@ -3,7 +3,7 @@
 {% block content %}
 <section class="panel">
   <div class="panel-head"><h3>Import Testmoz Results</h3><span class="muted">Scores are reflected in the matching student and trainer dashboards.</span></div>
-  <p class="muted">Upload CSV or Excel with: student_id, college_name, department, semester, test_name, subject, score, date, status.</p>
+  <p class="muted">Upload CSV or Excel with: student_id, college_name, department, semester, test_name, subject, score, total_marks, date, status. If total_marks is omitted, 100 is used.</p>
   <form method="post" enctype="multipart/form-data" class="form-grid">
     {% csrf_token %}
     <label>Testmoz results file<input type="file" name="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></label>

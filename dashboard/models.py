@@ -102,6 +102,7 @@ class Assessment(models.Model):
     name = models.CharField(max_length=150)
     subject = models.CharField(max_length=120)
     score = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    total_marks = models.PositiveIntegerField(default=100)
     date = models.DateField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="completed")
 
@@ -109,14 +110,21 @@ class Assessment(models.Model):
         ordering = ["-date"]
 
     @property
+    def score_percentage(self):
+        if self.score is None or not self.total_marks:
+            return None
+        return round(float(self.score) / self.total_marks * 100, 1)
+
+    @property
     def performance_label(self):
-        if self.score is None:
+        percentage = self.score_percentage
+        if percentage is None:
             return "-"
-        if self.score >= 90:
+        if percentage >= 90:
             return "Excellent"
-        if self.score >= 75:
+        if percentage >= 75:
             return "Good"
-        if self.score >= 50:
+        if percentage >= 50:
             return "Average"
         return "Needs Improvement"
 

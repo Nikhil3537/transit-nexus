@@ -354,7 +354,7 @@ def student_dashboard(request):
     completed_assessments = [a for a in assessments if a.status == "completed"]
     pending_assessments = [a for a in assessments if a.status == "pending"]
     scored = [a for a in completed_assessments if a.score is not None]
-    average_score = round(sum(float(a.score) for a in scored) / len(scored), 1) if scored else 0
+    average_score = round(sum(a.score_percentage for a in scored) / len(scored), 1) if scored else 0
 
     buckets = {"Excellent": 0, "Good": 0, "Average": 0, "Needs Improvement": 0}
     for a in scored:
@@ -367,7 +367,7 @@ def student_dashboard(request):
     score_trend_source = sorted(scored, key=lambda a: a.date)[-4:]
     score_trend = {
         "labels": [a.date.strftime("%b") for a in score_trend_source],
-        "values": [float(a.score) for a in score_trend_source],
+        "values": [a.score_percentage for a in score_trend_source],
     }
 
     # ---- Overall grade ----
@@ -833,9 +833,9 @@ def results_reports_view(request):
     trend_source = sorted(assessments, key=lambda a: a.date)[-6:]
     trend = {
         "labels": [a.date.strftime("%d %b") for a in trend_source],
-        "values": [float(a.score) for a in trend_source],
+        "values": [a.score_percentage for a in trend_source],
     }
-    avg_score = round(sum(float(a.score) for a in assessments) / len(assessments), 1) if assessments else 0
+    avg_score = round(sum(a.score_percentage for a in assessments) / len(assessments), 1) if assessments else 0
 
     context = {
         **_base_context(profile),
